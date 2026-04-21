@@ -204,14 +204,14 @@ class TestLegacyRemoved(unittest.TestCase):
             self.assertFalse(os.path.exists(path),
                              f"{name} 应已移走")
 
-    def test_backup_exists(self):
-        """.trash_backup/phase3/ 包含移走的文件。"""
-        backup_dir = os.path.join(PROJECT_ROOT, ".trash_backup", "phase3")
-        self.assertTrue(os.path.isdir(backup_dir),
-                         ".trash_backup/phase3/ 目录应存在")
-        backed_up = os.listdir(backup_dir)
-        self.assertIn("core_state.py", backed_up)
-        self.assertIn("core_pipeline.py", backed_up)
+    def test_archive_dir_exists(self):
+        """archive/ 目录包含隔离的非核心目录。"""
+        archive_dir = os.path.join(PROJECT_ROOT, "archive")
+        self.assertTrue(os.path.isdir(archive_dir),
+                         "archive/ 目录应存在")
+        archived = os.listdir(archive_dir)
+        self.assertIn("bin", archived)
+        self.assertIn("powershell", archived)
 
 
 class TestNewInit(unittest.TestCase):

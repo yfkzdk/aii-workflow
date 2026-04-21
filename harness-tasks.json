@@ -10,12 +10,12 @@
     {
       "id": "task-001",
       "title": "A4: 大扫除-删除僵尸文件+隔离非核心到archive",
-      "status": "pending",
+      "status": "completed",
       "priority": "P0",
       "depends_on": [],
-      "attempts": 0,
+      "attempts": 1,
       "max_attempts": 3,
-      "started_at_commit": null,
+      "started_at_commit": "15236e5",
       "validation": {
         "command": "cd 'O:/AII/上下文助手/' && python -c \"import os; root=os.listdir('.'); required=['README.md','用户使用说明.md','core','scripts','tests','config','workflows','archive']; missing=[r for r in required if r not in root]; assert not missing, f'Missing: {missing}'; zombies=[f for f in root if f.endswith('.py') and f not in ['__init__.py']]; assert not zombies, f'Zombie .py files: {zombies}'; print('A4 VALIDATION PASS')\"",
         "timeout_seconds": 30
@@ -25,7 +25,7 @@
       },
       "error_log": [],
       "checkpoints": [],
-      "completed_at": null
+      "completed_at": "2026-04-21T13:57:23Z"
     },
     {
       "id": "task-002",
