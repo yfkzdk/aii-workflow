@@ -1,0 +1,28 @@
+{
+  "version": "3.0",
+  "pipeline": [
+    "input_collecting",
+    "requirement_optimizing",
+    "confirmation",
+    "planning",
+    "prompt_optimizing",
+    "executing",
+    "verifying",
+    "archiving",
+    "completed"
+  ],
+  "token_threshold": 1200,
+  "max_confirmation_retries": 4,
+  "max_retries": 3,
+  "step_agents": {
+    "input_collecting": "input_collector",
+    "requirement_optimizing": "requirement_optimizer",
+    "confirmation": "user",
+    "planning": "planner",
+    "prompt_optimizing": "prompt_optimizer",
+    "executing": "coder",
+    "verifying": "verifier",
+    "archiving": "archivist",
+    "completed": null
+  }
+}

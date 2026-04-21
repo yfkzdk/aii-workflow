@@ -1,0 +1,103 @@
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>端到端测试报告</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; }
+                .summary { background: #f5f5f5; padding: 20px; border-radius: 5px; }
+                .pass { color: green; }
+                .fail { color: red; }
+                table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; }
+                tr:nth-child(even) { background-color: #f9f9f9; }
+            </style>
+        </head>
+        <body>
+            <h1>📊 端到端测试报告</h1>
+
+            <div class="summary">
+                <h2>测试摘要</h2>
+                <p><strong>总测试数:</strong> 8</p>
+                <p><strong>通过测试:</strong> <span class="pass">2</span></p>
+                <p><strong>失败测试:</strong> <span class="fail">6</span></p>
+                <p><strong>通过率:</strong> 25.0%</p>
+                <p><strong>总用时:</strong> 0.15秒</p>
+                <p><strong>测试时间:</strong> 2026-04-17T15:49:30.980031</p>
+            </div>
+
+            <h2>详细结果</h2>
+            <table>
+                <tr>
+                    <th>测试名称</th>
+                    <th>状态</th>
+                    <th>用时(秒)</th>
+                    <th>详情</th>
+                </tr>
+        
+                <tr>
+                    <td>01_directory_structure</td>
+                    <td class="fail">FAIL</td>
+                    <td>0.0</td>
+                    <td>目录结构检查: 缺失目录=6, 缺失文件=7</td>
+                </tr>
+            
+                <tr>
+                    <td>02_config_file_validation</td>
+                    <td class="fail">FAIL</td>
+                    <td>0.0</td>
+                    <td>读取配置文件时发生错误</td>
+                </tr>
+            
+                <tr>
+                    <td>03_workflow_manager_functionality</td>
+                    <td class="fail">FAIL</td>
+                    <td>0.0</td>
+                    <td>工作流管理器文件不存在</td>
+                </tr>
+            
+                <tr>
+                    <td>04_task_creation_workflow</td>
+                    <td class="fail">FAIL</td>
+                    <td>0.05</td>
+                    <td>任务创建: 命令成功=False, 文件存在=False, 内容有效=False</td>
+                </tr>
+            
+                <tr>
+                    <td>05_solution_generation</td>
+                    <td class="fail">FAIL</td>
+                    <td>0.04</td>
+                    <td>方案生成测试失败</td>
+                </tr>
+            
+                <tr>
+                    <td>06_pipeline_integration</td>
+                    <td class="fail">FAIL</td>
+                    <td>0.0</td>
+                    <td>管道集成检查: 完整性=False</td>
+                </tr>
+            
+                <tr>
+                    <td>07_performance_benchmark</td>
+                    <td class="pass">PASS</td>
+                    <td>0.06</td>
+                    <td>性能基准测试: 符合要求=True</td>
+                </tr>
+            
+                <tr>
+                    <td>08_error_handling</td>
+                    <td class="pass">PASS</td>
+                    <td>0.0</td>
+                    <td>错误处理测试: 通过率=100.00% (3/3)</td>
+                </tr>
+            
+            </table>
+
+            <h2>建议</h2>
+            <ul>
+        <li>🔧 配置文件验证失败，请检查pipeline_config.json的格式和内容。</li><li>🔄 工作流功能测试失败，检查workflow_manager.py中的函数实现。</li><li>❌ 02_config_file_validation: [Errno 2] No such file or directory: '上下文助手\\workflows\\pipeline_config.json'</li><li>❌ 03_workflow_manager_functionality: 文件不存在: 上下文助手\scripts\workflow_manager.py</li><li>❌ 05_solution_generation: [Errno 2] No such file or directory: '上下文助手\\AI_WORKFLOW_LOG.md'</li><li>📝 建议添加更多异常处理代码。</li><li>🔍 考虑添加日志记录以更好地调试问题。</li><li>🧪 增加单元测试覆盖率。</li>
+            </ul>
+        </body>
+        </html>
+        

@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-specific
+*.db
+*.db-wal
+*.db-shm
+state.json
+
+# Artifacts (generated at runtime)
+artifacts/
+
+# Archive (non-core, kept for reference)
+archive/
+
+# Logs
+logs/*.log
+
+# Environment
+.env
+.env.local

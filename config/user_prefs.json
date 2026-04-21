@@ -1,0 +1,14 @@
+{
+  "version": "2.0",
+  "auto_copy_to_clipboard": true,
+  "auto_open_claude": false,
+  "default_theme": "light",
+  "notification_enabled": true,
+  "max_history_size": 100,
+  "auto_cleanup_days": 30,
+  "interactive_mode": true,
+  "color_output": true,
+  "preferred_task_types": [],
+  "last_used_template": "general",
+  "installed_at": "2024-04-15"
+}

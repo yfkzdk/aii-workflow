@@ -1,0 +1,68 @@
+#!/bin/bash
+# AII工作流极简启动器 - Linux/Mac版
+# 使用方法: ww "你的任务描述"
+
+WORKFLOW_DIR="$(cd "$(dirname "$0")" && pwd)"
+PYTHON_SCRIPT="$WORKFLOW_DIR/ww.py"
+
+# 检查Python脚本是否存在
+if [ ! -f "$PYTHON_SCRIPT" ]; then
+    echo "❌ 错误: Python脚本不存在: $PYTHON_SCRIPT"
+    echo "请确保 ww.py 文件存在"
+    exit 1
+fi
+
+# 如果没有参数，显示帮助
+if [ $# -eq 0 ]; then
+    echo "🚀 AII工作流极简启动器 (ww)"
+    echo "========================================"
+    echo ""
+    echo "使用方式:"
+    echo "  ww \"任务描述\"         启动新任务"
+    echo "  ww status             查看状态"
+    echo "  ww recover            恢复中断任务"
+    echo "  ww clean [天数]       清理旧数据"
+    echo "  ww config 项 值       修改配置"
+    echo ""
+    echo "示例:"
+    echo "  ww \"帮我写一个Python脚本\""
+    echo "  ww status"
+    echo "  ww recover"
+    echo "  ww clean 30"
+    echo "  ww config auto_copy_to_clipboard false"
+    echo ""
+    echo "💡 提示: 直接输入任务描述即可，不需要\"start\""
+    exit 0
+fi
+
+# 检查第一个参数是否是命令
+ARG1="$1"
+IS_COMMAND=0
+
+case "$ARG1" in
+    status|recover|clean|config)
+        IS_COMMAND=1
+        ;;
+esac
+
+# 如果不是命令，则视为任务描述
+if [ $IS_COMMAND -eq 0 ]; then
+    # 将所有参数作为任务描述
+    TASK_DESC="$*"
+
+    echo "🚀 启动新工作流任务..."
+    echo ""
+    python3 "$PYTHON_SCRIPT" start "$TASK_DESC"
+else
+    # 如果是命令，直接传递所有参数
+    python3 "$PYTHON_SCRIPT" "$@"
+fi
+
+# 检查执行结果
+if [ $? -eq 0 ]; then
+    echo ""
+    echo "✅ 操作完成"
+else
+    echo ""
+    echo "❌ 操作失败"
+fi

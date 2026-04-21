@@ -1,0 +1,561 @@
+#!/usr/bin/env python3
+"""
+🎯 AII工作流智能启动器 - 增强版
+🚀 使用方法: ww "你的任务描述"
+📖 完整文档: 运行 ww --help
+"""
+
+import sys
+import os
+import json
+import shutil
+import time
+from pathlib import Path
+from datetime import datetime, timedelta
+import argparse
+import subprocess
+import platform
+import textwrap
+from typing import Dict, List, Optional, Tuple, Any
+
+class Colors:
+    """ANSI颜色代码"""
+    # 基础颜色
+    RED = '\033[91m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    BLUE = '\033[94m'
+    MAGENTA = '\033[95m'
+    CYAN = '\033[96m'
+    WHITE = '\033[97m'
+
+    # 加粗
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+    # 背景色
+    BG_RED = '\033[41m'
+    BG_GREEN = '\033[42m'
+    BG_YELLOW = '\033[43m'
+    BG_BLUE = '\033[44m'
+
+    # 重置
+    RESET = '\033[0m'
+
+    @classmethod
+    def colorize(cls, text: str, color: str) -> str:
+        """添加颜色到文本"""
+        if not sys.stdout.isatty():  # 如果不是终端，不添加颜色
+            return text
+        return f"{color}{text}{cls.RESET}"
+
+    @classmethod
+    def success(cls, text: str) -> str:
+        """成功消息"""
+        return cls.colorize(f"✅ {text}", cls.GREEN)
+
+    @classmethod
+    def error(cls, text: str) -> str:
+        """错误消息"""
+        return cls.colorize(f"❌ {text}", cls.RED)
+
+    @classmethod
+    def warning(cls, text: str) -> str:
+        """警告消息"""
+        return cls.colorize(f"⚠️  {text}", cls.YELLOW)
+
+    @classmethod
+    def info(cls, text: str) -> str:
+        """信息消息"""
+        return cls.colorize(f"ℹ️  {text}", cls.BLUE)
+
+    @classmethod
+    def title(cls, text: str) -> str:
+        """标题"""
+        return cls.colorize(f"📌 {text}", cls.CYAN + cls.BOLD)
+
+    @classmethod
+    def progress(cls, text: str) -> str:
+        """进度消息"""
+        return cls.colorize(f"🔄 {text}", cls.MAGENTA)
+
+    @classmethod
+    def step(cls, text: str) -> str:
+        """步骤消息"""
+        return cls.colorize(f"   → {text}", cls.WHITE)
+    def __init__(self):
+        """初始化启动器"""
+        self.workflow_dir = Path("O:/AII/上下文助手")
+        self.tasks_dir = self.workflow_dir / "tasks"
+        self.workflows_dir = self.workflow_dir / "workflows"
+        self.config_file = self.workflow_dir / "config" / "user_prefs.json"
+
+        # 确保目录存在
+        self.setup_directories()
+
+        # 加载用户偏好
+        self.user_prefs = self.load_user_prefs()
+
+    def setup_directories(self):
+        """确保必要的目录存在"""
+        dirs = [
+            self.workflow_dir,
+            self.tasks_dir,
+            self.workflows_dir,
+            self.workflow_dir / "config",
+            self.workflow_dir / "logs"
+        ]
+
+        for directory in dirs:
+            directory.mkdir(parents=True, exist_ok=True)
+
+    def load_user_prefs(self):
+        """加载用户偏好设置"""
+        default_prefs = {
+            "last_task_type": "general",
+            "favorite_templates": [],
+            "auto_copy_to_clipboard": True,
+            "auto_open_claude": False,
+            "default_priority": "medium",
+            "theme": "light"
+        }
+
+        if self.config_file.exists():
+            try:
+                with open(self.config_file, 'r', encoding='utf-8') as f:
+                    return {**default_prefs, **json.load(f)}
+            except:
+                return default_prefs
+        return default_prefs
+
+    def save_user_prefs(self):
+        """保存用户偏好"""
+        with open(self.config_file, 'w', encoding='utf-8') as f:
+            json.dump(self.user_prefs, f, indent=2, ensure_ascii=False)
+
+    def generate_task_id(self):
+        """生成任务ID"""
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        return f"TASK-{timestamp}"
+
+    def detect_task_type(self, description):
+        """智能检测任务类型"""
+        description_lower = description.lower()
+
+        keywords = {
+            "code": ["代码", "编程", "脚本", "函数", "程序", "python", "java", "javascript", "html", "css"],
+            "debug": ["错误", "bug", "修复", "问题", "调试", "报错", "异常"],
+            "learn": ["学习", "教程", "教学", "如何", "了解", "研究", "掌握"],
+            "doc": ["文档", "说明", "指南", "手册", "readme", "注释"],
+            "data": ["数据", "分析", "统计", "excel", "csv", "数据库", "sql"],
+            "web": ["网站", "网页", "前端", "后端", "api", "接口", "网络"],
+            "system": ["系统", "配置", "部署", "安装", "环境", "服务器", "docker"]
+        }
+
+        for task_type, words in keywords.items():
+            for word in words:
+                if word in description_lower:
+                    return task_type
+
+        return "general"
+
+    def get_template_by_type(self, task_type):
+        """根据任务类型获取模板"""
+        templates = {
+            "code": {
+                "priority": "high",
+                "complexity": "medium",
+                "category": "代码开发",
+                "requirements": "需要提供完整代码、测试用例和使用说明"
+            },
+            "debug": {
+                "priority": "high",
+                "complexity": "variable",
+                "category": "问题解决",
+                "requirements": "需要详细错误信息、环境配置和复现步骤"
+            },
+            "learn": {
+                "priority": "medium",
+                "complexity": "variable",
+                "category": "学习研究",
+                "requirements": "需要明确学习目标、基础要求和期望产出"
+            },
+            "doc": {
+                "priority": "low",
+                "complexity": "low",
+                "category": "文档编写",
+                "requirements": "需要明确文档类型、目标读者和内容结构"
+            },
+            "general": {
+                "priority": "medium",
+                "complexity": "medium",
+                "category": "通用任务",
+                "requirements": "需要明确任务目标、约束条件和期望结果"
+            }
+        }
+
+        return templates.get(task_type, templates["general"])
+
+    def create_task_file(self, task_id, description):
+        """创建任务文件"""
+        task_type = self.detect_task_type(description)
+        template = self.get_template_by_type(task_type)
+
+        # 更新用户偏好
+        self.user_prefs["last_task_type"] = task_type
+        if task_type not in self.user_prefs["favorite_templates"]:
+            self.user_prefs["favorite_templates"].append(task_type)
+        self.save_user_prefs()
+
+        # 创建任务内容
+        task_content = f"""# 🔧 AI 工作流任务输入
+
+## 🆔 任务标识
+`{task_id}`
+
+## 🎯 任务目标
+{description}
+
+## 🏷️ 任务分类
+- **类型**: {template['category']}
+- **优先级**: {template['priority']}
+- **复杂度**: {template['complexity']}
+
+## 📋 输入要求
+{template['requirements']}
+
+## ⚠️ 约束条件
+- [ ] 技术限制：自动识别
+- [ ] 时间限制：尽快完成
+- [ ] 资源限制：标准配置
+- [ ] 兼容性要求：无特殊要求
+
+## 📊 期望输出格式
+1. **完整解决方案**
+2. **验证结果**
+3. **可复用组件**
+4. **下一步建议**
+
+## 🔍 历史参考
+从 AI_WORKFLOW_LOG.md 中自动提取相关成功模式
+
+## 📝 附加说明
+使用AI工作流自动处理，保持输出简洁高效
+"""
+
+        # 保存任务文件
+        task_file = self.tasks_dir / "input_task.md"
+        task_file.write_text(task_content, encoding='utf-8')
+
+        return task_file
+
+    def create_claude_instruction(self, task_id, description):
+        """创建Claude Code指令"""
+        return f"""🤖 **启动AII上下文助手工作流**
+
+工作流路径：O:\\AII\\上下文助手
+
+已创建任务：{task_id}
+任务描述：{description}
+
+请按工作流执行：
+1. 读取任务需求
+2. 分析历史日志中的成功模式
+3. 生成三个方案并对比
+4. 选择最优方案执行
+5. 输出结果到 tasks/output_result.md
+
+💡 提示：系统会自动处理400错误，最多重试3次
+"""
+
+    def copy_to_clipboard(self, text):
+        """复制文本到剪贴板"""
+        try:
+            if platform.system() == "Windows":
+                # Windows
+                subprocess.run("clip", input=text.encode('utf-8'), check=True, shell=True)
+                return True
+            elif platform.system() == "Darwin":
+                # macOS
+                subprocess.run("pbcopy", input=text.encode('utf-8'), check=True)
+                return True
+            else:
+                # Linux
+                subprocess.run(["xclip", "-selection", "clipboard"], input=text.encode('utf-8'), check=True)
+                return True
+        except:
+            return False
+
+    def check_interrupted_workflows(self):
+        """检查中断的工作流"""
+        interrupted = []
+
+        if not self.workflows_dir.exists():
+            return interrupted
+
+        for workflow_dir in self.workflows_dir.iterdir():
+            if workflow_dir.is_dir():
+                state_file = workflow_dir / "state.json"
+                if state_file.exists():
+                    try:
+                        with open(state_file, 'r', encoding='utf-8') as f:
+                            state = json.load(f)
+
+                        if state.get("status") not in ["completed", "failed"]:
+                            task_id = state.get("task_id", workflow_dir.name)
+                            retry_count = state.get("retry_count", 0)
+                            max_retries = state.get("max_retries", 3)
+
+                            interrupted.append({
+                                "task_id": task_id,
+                                "dir": workflow_dir.name,
+                                "status": state.get("status", "unknown"),
+                                "retry_count": retry_count,
+                                "max_retries": max_retries,
+                                "path": str(workflow_dir)
+                            })
+                    except:
+                        continue
+
+        return interrupted
+
+    def create_recovery_instruction(self, workflow):
+        """创建恢复指令"""
+        return f"""🤖 **恢复AII工作流 - 从断点继续**
+
+工作流路径：O:\\AII\\上下文助手
+
+任务ID：{workflow['task_id']}
+当前状态：{workflow['status']}
+重试次数：{workflow['retry_count']}/{workflow['max_retries']}
+
+恢复指令：
+1. 读取状态文件：workflows/{workflow['dir']}/state.json
+2. 清理对话历史（避免400错误）
+3. 从断点处继续执行
+4. 保持输出简洁（≤1200 tokens）
+
+💡 提示：请在新Claude Code窗口中粘贴此指令
+"""
+
+    def cleanup_old_workflows(self, days_old=7):
+        """清理旧的工作流"""
+        cutoff_date = datetime.now().timestamp() - (days_old * 24 * 60 * 60)
+        cleaned_count = 0
+
+        if not self.workflows_dir.exists():
+            return cleaned_count
+
+        for workflow_dir in self.workflows_dir.iterdir():
+            if workflow_dir.is_dir():
+                state_file = workflow_dir / "state.json"
+                if state_file.exists():
+                    try:
+                        with open(state_file, 'r', encoding='utf-8') as f:
+                            state = json.load(f)
+
+                        # 只清理已完成或失败的，并且超过指定天数
+                        if state.get("status") in ["completed", "failed"]:
+                            if "completed_at" in state:
+                                completed_time = datetime.fromisoformat(state["completed_at"].replace("Z", "+00:00"))
+                                if completed_time.timestamp() < cutoff_date:
+                                    shutil.rmtree(workflow_dir)
+                                    cleaned_count += 1
+                    except:
+                        continue
+
+        return cleaned_count
+
+    def show_status(self):
+        """显示系统状态"""
+        print("📊 AII工作流系统状态")
+        print("=" * 50)
+
+        # 检查中断的工作流
+        interrupted = self.check_interrupted_workflows()
+        if interrupted:
+            print(f"⚠️  发现 {len(interrupted)} 个中断的工作流:")
+            for wf in interrupted:
+                print(f"  • {wf['task_id']} ({wf['status']}) - 重试 {wf['retry_count']}/{wf['max_retries']}")
+        else:
+            print("✅ 没有中断的工作流")
+
+        # 显示用户偏好
+        print(f"\n👤 用户偏好:")
+        print(f"  • 最后任务类型: {self.user_prefs.get('last_task_type', '无')}")
+        print(f"  • 常用模板: {', '.join(self.user_prefs.get('favorite_templates', []))}")
+
+        # 清理建议
+        cleaned = self.cleanup_old_workflows(days_old=30)
+        if cleaned > 0:
+            print(f"🗑️  已清理 {cleaned} 个旧工作流")
+
+    def run(self, args):
+        """运行启动器"""
+        if args.command == "start":
+            self.command_start(args.task_description)
+        elif args.command == "status":
+            self.command_status()
+        elif args.command == "recover":
+            self.command_recover()
+        elif args.command == "clean":
+            self.command_clean(args.days)
+        elif args.command == "config":
+            self.command_config(args.setting, args.value)
+        else:
+            print("❌ 未知命令")
+
+    def command_start(self, description):
+        """启动新任务"""
+        print("🚀 启动新工作流任务")
+        print("-" * 40)
+
+        # 生成任务ID
+        task_id = self.generate_task_id()
+        print(f"📝 任务ID: {task_id}")
+
+        # 检测任务类型
+        task_type = self.detect_task_type(description)
+        print(f"🎯 任务类型: {task_type}")
+
+        # 创建任务文件
+        task_file = self.create_task_file(task_id, description)
+        print(f"📄 任务文件: {task_file}")
+
+        # 创建Claude指令
+        instruction = self.create_claude_instruction(task_id, description)
+
+        # 复制到剪贴板
+        if self.user_prefs.get("auto_copy_to_clipboard", True):
+            if self.copy_to_clipboard(instruction):
+                print("📋 指令已复制到剪贴板")
+            else:
+                print("⚠️  无法复制到剪贴板，请手动复制")
+
+        print("\n" + "=" * 40)
+        print("📋 请在Claude Code中粘贴以下指令:")
+        print("=" * 40)
+        print(instruction)
+        print("=" * 40)
+
+        # 检查是否有中断的工作流
+        interrupted = self.check_interrupted_workflows()
+        if interrupted:
+            print(f"\n⚠️  注意: 有 {len(interrupted)} 个中断的工作流")
+            print("   使用 'ww recover' 命令恢复")
+
+    def command_status(self):
+        """显示状态"""
+        self.show_status()
+
+    def command_recover(self):
+        """恢复中断的工作流"""
+        interrupted = self.check_interrupted_workflows()
+
+        if not interrupted:
+            print("✅ 没有中断的工作流需要恢复")
+            return
+
+        print(f"🔄 发现 {len(interrupted)} 个中断的工作流:")
+        for i, wf in enumerate(interrupted, 1):
+            print(f"{i}. {wf['task_id']} ({wf['status']}) - 重试 {wf['retry_count']}/{wf['max_retries']}")
+
+        try:
+            choice = input("\n选择要恢复的工作流 (输入编号或 'a' 全部恢复): ").strip()
+
+            if choice.lower() == 'a':
+                for wf in interrupted:
+                    instruction = self.create_recovery_instruction(wf)
+                    print(f"\n📋 恢复指令 - {wf['task_id']}:")
+                    print("-" * 40)
+                    print(instruction)
+                    print("-" * 40)
+            else:
+                index = int(choice) - 1
+                if 0 <= index < len(interrupted):
+                    wf = interrupted[index]
+                    instruction = self.create_recovery_instruction(wf)
+
+                    if self.copy_to_clipboard(instruction):
+                        print("📋 恢复指令已复制到剪贴板")
+
+                    print(f"\n📋 恢复指令 - {wf['task_id']}:")
+                    print("-" * 40)
+                    print(instruction)
+                    print("-" * 40)
+                else:
+                    print("❌ 无效的选择")
+        except ValueError:
+            print("❌ 请输入有效的编号")
+
+    def command_clean(self, days):
+        """清理旧工作流"""
+        cleaned = self.cleanup_old_workflows(days)
+        print(f"🗑️  已清理 {cleaned} 个超过{days}天的工作流")
+
+    def command_config(self, setting, value):
+        """配置设置"""
+        if setting in self.user_prefs:
+            old_value = self.user_prefs[setting]
+            self.user_prefs[setting] = value
+            self.save_user_prefs()
+            print(f"✅ 配置已更新: {setting} = {old_value} -> {value}")
+        else:
+            print(f"❌ 未知配置项: {setting}")
+
+def main():
+    """主函数"""
+    parser = argparse.ArgumentParser(
+        description="AII工作流极简启动器 (ww)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+使用示例:
+  ww start "帮我写一个Python脚本"
+  ww status
+  ww recover
+  ww clean 30
+  ww config auto_copy_to_clipboard false
+
+快捷方式:
+  ww "任务描述"  # 等同于 ww start "任务描述"
+        """
+    )
+
+    subparsers = parser.add_subparsers(dest="command", help="可用命令")
+
+    # start 命令
+    start_parser = subparsers.add_parser("start", help="启动新任务")
+    start_parser.add_argument("task_description", help="任务描述")
+
+    # status 命令
+    subparsers.add_parser("status", help="显示系统状态")
+
+    # recover 命令
+    subparsers.add_parser("recover", help="恢复中断的工作流")
+
+    # clean 命令
+    clean_parser = subparsers.add_parser("clean", help="清理旧工作流")
+    clean_parser.add_argument("days", type=int, default=30, nargs="?", help="清理多少天前的数据")
+
+    # config 命令
+    config_parser = subparsers.add_parser("config", help="配置设置")
+    config_parser.add_argument("setting", help="配置项")
+    config_parser.add_argument("value", help="配置值")
+
+    # 如果没有子命令，假设是 start
+    if len(sys.argv) == 1:
+        print("请输入任务描述，例如: ww \"帮我写一个Python脚本\"")
+        sys.exit(1)
+
+    # 处理快捷方式: ww "任务描述"
+    if len(sys.argv) == 2 and not sys.argv[1].startswith("-"):
+        args = parser.parse_args(["start", sys.argv[1]])
+    else:
+        args = parser.parse_args()
+
+    # 运行启动器
+    launcher = SimpleWorkflowLauncher()
+    launcher.run(args)
+
+if __name__ == "__main__":
+    main()

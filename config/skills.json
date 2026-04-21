@@ -1,0 +1,146 @@
+{
+  "global_skills": [
+    "simplify",
+    "fewer-permission-prompts"
+  ],
+  "skill_registry": {
+    "simplify": {
+      "description": "代码简化重构，消除冗余和过度抽象",
+      "permissions": [
+        "read:code",
+        "write:code"
+      ],
+      "estimated_cost": "medium",
+      "match_tags": [
+        "code-quality",
+        "refactor",
+        "cleanup",
+        "simplification",
+        "frontend",
+        "game",
+        "interactive"
+      ],
+      "performance_profile": {
+        "avg_duration_seconds": 16.5,
+        "avg_token_cost": 2050.0,
+        "success_rate": 0.96,
+        "sample_count": 2
+      },
+      "applicable_agents": [
+        "coder",
+        "coder_frontend",
+        "coder_backend",
+        "verifier"
+      ]
+    },
+    "security-review": {
+      "description": "安全漏洞审查，检测OWASP Top 10等风险",
+      "permissions": [
+        "read:code"
+      ],
+      "estimated_cost": "high",
+      "match_tags": [
+        "security",
+        "vulnerability",
+        "audit",
+        "compliance",
+        "backend",
+        "networking",
+        "auth"
+      ],
+      "performance_profile": {
+        "avg_duration_seconds": 48.5,
+        "avg_token_cost": 4900.0,
+        "success_rate": 0.94,
+        "sample_count": 2
+      },
+      "applicable_agents": [
+        "coder",
+        "coder_backend",
+        "verifier"
+      ]
+    },
+    "fewer-permission-prompts": {
+      "description": "扫描常用只读命令并加入权限白名单，减少权限弹窗",
+      "permissions": [
+        "read:transcripts",
+        "write:settings"
+      ],
+      "estimated_cost": "low",
+      "match_tags": [
+        "permissions",
+        "config",
+        "automation",
+        "developer-experience",
+        "frontend",
+        "backend"
+      ],
+      "performance_profile": {
+        "avg_duration_seconds": 10,
+        "avg_token_cost": 800,
+        "success_rate": 0.95,
+        "sample_count": 1
+      },
+      "applicable_agents": [
+        "coder",
+        "coder_frontend",
+        "coder_backend"
+      ]
+    },
+    "review": {
+      "description": "代码审查，检查最佳实践和设计模式",
+      "permissions": [
+        "read:code",
+        "read:git"
+      ],
+      "estimated_cost": "medium",
+      "match_tags": [
+        "code-review",
+        "quality",
+        "best-practices",
+        "maintainability",
+        "game",
+        "frontend",
+        "backend"
+      ],
+      "performance_profile": {
+        "avg_duration_seconds": 30,
+        "avg_token_cost": 3000,
+        "success_rate": 0.9,
+        "sample_count": 1
+      },
+      "applicable_agents": [
+        "verifier"
+      ]
+    },
+    "claude-api": {
+      "description": "Claude API集成开发，含提示缓存和模型切换",
+      "permissions": [
+        "read:code",
+        "write:code",
+        "read:config"
+      ],
+      "estimated_cost": "medium",
+      "match_tags": [
+        "api",
+        "claude",
+        "anthropic",
+        "sdk",
+        "integration",
+        "ai",
+        "ml",
+        "backend"
+      ],
+      "performance_profile": {
+        "avg_duration_seconds": 25,
+        "avg_token_cost": 2500,
+        "success_rate": 0.85,
+        "sample_count": 1
+      },
+      "applicable_agents": [
+        "coder",
+        "coder_backend"
+      ]
+    }
+  }
+}

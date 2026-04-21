@@ -1,0 +1,192 @@
+{
+  "pipeline_name": "AI工作流编排测试管道",
+  "version": "1.0.0",
+  "description": "端到端测试工作流编排系统的配置文件",
+  "created_at": "2026-04-12T20:36:00Z",
+
+  "pipeline_stages": [
+    {
+      "stage": "需求分析",
+      "duration": "5分钟",
+      "priority": "高",
+      "description": "接收用户需求，生成格式化的任务文件",
+      "input": "用户原始需求文本",
+      "output": "tasks/input_task.md文件",
+      "success_criteria": "input_task.md符合格式规范且包含所有必填字段"
+    },
+    {
+      "stage": "方案生成",
+      "duration": "10分钟",
+      "priority": "高",
+      "description": "生成三个对比方案：激进、平衡、保守",
+      "input": "tasks/input_task.md",
+      "output": "三个详细方案文档",
+      "success_criteria": "生成三个逻辑一致的方案，每个方案有明确的效率、可维护性、风险评估"
+    },
+    {
+      "stage": "方案对比",
+      "duration": "5分钟",
+      "priority": "高",
+      "description": "通过决策矩阵对比三个方案并选择最优方案",
+      "input": "三个方案文档",
+      "output": "最优方案选择结果",
+      "success_criteria": "根据权重计算出每个方案的总分，明确选择最优方案"
+    },
+    {
+      "stage": "方案实施",
+      "duration": "15分钟",
+      "priority": "中",
+      "description": "实施选定的最优方案",
+      "input": "最优方案文档",
+      "output": "实施结果文件和测试报告",
+      "success_criteria": "完成所有实施步骤并通过基本验证"
+    },
+    {
+      "stage": "结果归档",
+      "duration": "2分钟",
+      "priority": "中",
+      "description": "将任务结果归档到workflows目录并更新日志",
+      "input": "实施结果文件",
+      "output": "归档文件和工作流日志更新",
+      "success_criteria": "归档文件完整且日志记录准确"
+    }
+  ],
+
+  "test_scenarios": [
+    {
+      "name": "场景1: 简单代码优化任务",
+      "description": "测试基础工作流处理简单任务的能力",
+      "user_input": "优化Python函数calculate_total，提高性能",
+      "expected_steps": ["需求分析", "方案生成", "方案对比", "实施", "归档"],
+      "validation_criteria": [
+        "生成input_task.md",
+        "生成三个对比方案",
+        "选择最优方案",
+        "完成实施",
+        "更新AI_WORKFLOW_LOG.md"
+      ]
+    },
+    {
+      "name": "场景2: 复杂系统配置任务",
+      "description": "测试工作流处理多步骤复杂任务的能力",
+      "user_input": "配置完整的数据处理流水线，包括数据获取、清洗、分析和可视化",
+      "expected_steps": ["需求分析", "方案生成", "方案对比", "实施", "归档"],
+      "validation_criteria": [
+        "input_task.md包含详细约束",
+        "三个方案覆盖不同技术栈",
+        "决策矩阵包含所有维度",
+        "实施结果文件齐全",
+        "归档路径正确"
+      ]
+    },
+    {
+      "name": "场景3: 故障恢复测试",
+      "description": "测试工作流在失败情况下的恢复能力",
+      "user_input": "创建可能失败的测试任务",
+      "expected_steps": ["需求分析", "方案生成", "方案对比", "实施失败", "错误处理"],
+      "validation_criteria": [
+        "正确识别失败原因",
+        "提供恢复建议",
+        "日志记录错误信息",
+        "保持系统稳定性"
+      ]
+    }
+  ],
+
+  "performance_requirements": {
+    "response_time": {
+      "pipeline_start_to_end": "≤30分钟",
+      "per_stage_average": "≤6分钟",
+      "file_io_operations": "≤2秒"
+    },
+    "resource_usage": {
+      "memory_peak": "≤512MB",
+      "cpu_utilization": "≤70%",
+      "disk_space": "≤100MB"
+    },
+    "reliability": {
+      "success_rate": "≥95%",
+      "error_recovery_time": "≤3分钟",
+      "data_integrity": "100%"
+    }
+  },
+
+  "validation_metrics": {
+    "functional": {
+      "task_creation_success": "是否成功创建任务文件",
+      "solution_generation": "是否生成三个合理方案",
+      "comparison_complete": "是否完成方案对比",
+      "implementation_done": "是否完成方案实施",
+      "archiving_correct": "是否正确归档结果"
+    },
+    "quality": {
+      "solution_coverage": "方案覆盖度（0-100%）",
+      "decision_accuracy": "决策准确性（0-100%）",
+      "implementation_quality": "实施质量评分（1-10）",
+      "user_satisfaction": "用户满意度评分（1-10）"
+    },
+    "technical": {
+      "code_coverage": "代码覆盖率（≥80%）",
+      "error_rate": "错误率（≤5%）",
+      "response_time": "平均响应时间（≤2分钟）",
+      "file_integrity": "文件完整性检查（通过/失败）"
+    }
+  },
+
+  "integration_points": {
+    "claude_code": {
+      "agent_interface": ".claude/agents/workflow_agent.md",
+      "config_interface": ".claude/CLAUDE.md",
+      "trigger_events": ["任务创建", "方案生成", "结果归档"]
+    },
+    "file_system": {
+      "input_directory": "tasks/",
+      "output_directory": "workflows/",
+      "log_file": "AI_WORKFLOW_LOG.md",
+      "temp_directory": "workflows/temp/"
+    },
+    "monitoring": {
+      "status_file": "workflows/states/status.json",
+      "metrics_file": "workflows/states/metrics.json",
+      "error_log": "logs/workflow_errors.log"
+    }
+  },
+
+  "error_handling": {
+    "validation_errors": {
+      "action": "记录错误并停止当前步骤",
+      "retry": "自动重试3次",
+      "fallback": "使用默认配置继续"
+    },
+    "file_errors": {
+      "action": "检查文件权限和磁盘空间",
+      "retry": "重试2次后创建备份",
+      "fallback": "使用内存缓存继续"
+    },
+    "timeout_errors": {
+      "action": "记录超时并继续下一阶段",
+      "retry": "不重试",
+      "fallback": "跳过当前步骤继续"
+    }
+  },
+
+  "logging_configuration": {
+    "log_levels": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+    "log_formats": {
+      "console": "%(asctime)s - %(levelname)s - %(message)s",
+      "file": "%(asctime)s | %(levelname)s | %(module)s | %(message)s"
+    },
+    "log_rotation": {
+      "max_size": "10MB",
+      "backup_count": 5,
+      "rotation_time": "midnight"
+    }
+  },
+
+  "maintenance": {
+    "cleanup_schedule": "每日凌晨2点",
+    "retention_policy": "保留最近30天日志",
+    "backup_schedule": "每周日凌晨1点",
+    "health_check_interval": "每小时"
+  }
+}

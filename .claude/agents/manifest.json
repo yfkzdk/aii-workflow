@@ -1,0 +1,76 @@
+{
+  "pipeline": [
+    "input_collecting",
+    "requirement_optimizing",
+    "confirmation",
+    "planning",
+    "prompt_optimizing",
+    "executing",
+    "verifying",
+    "archiving"
+  ],
+  "agents": {
+    "input_collector": {
+      "role": "用户输入收集",
+      "input": "用户交互",
+      "output": "user_input (state.json)",
+      "skills": []
+    },
+    "requirement_optimizer": {
+      "role": "需求优化与方案生成",
+      "input": "user_input (state.json)",
+      "output": "artifacts/optimized_requirement.json",
+      "skills": []
+    },
+    "planner": {
+      "role": "需求拆解",
+      "input": "artifacts/optimized_requirement.json",
+      "output": "artifacts/requirements.md",
+      "skills": []
+    },
+    "prompt_optimizer": {
+      "role": "提示词三选一优化",
+      "input": "artifacts/requirements.md",
+      "output": "artifacts/optimal_prompt.md",
+      "skills": ["simplify"]
+    },
+    "coder": {
+      "role": "代码实现",
+      "input": "artifacts/optimal_prompt.md",
+      "output": "artifacts/code/",
+      "skills": ["simplify", "security-review"]
+    },
+    "coder_frontend": {
+      "role": "前端开发",
+      "input": "artifacts/optimal_prompt.md",
+      "output": "artifacts/code/frontend/",
+      "skills": ["simplify"]
+    },
+    "coder_backend": {
+      "role": "后端开发",
+      "input": "artifacts/optimal_prompt.md",
+      "output": "artifacts/code/backend/",
+      "skills": ["security-review", "claude-api"]
+    },
+    "verifier": {
+      "role": "测试验证",
+      "input": "artifacts/code/",
+      "output": "artifacts/test_report.json",
+      "skills": ["review", "security-review"]
+    },
+    "archivist": {
+      "role": "归档索引",
+      "input": "artifacts/*",
+      "output": "AI_WORKFLOW_LOG.md",
+      "skills": []
+    }
+  },
+  "confirmation_gate": {
+    "description": "用户确认门：需求优化完成后暂停，等待用户选择方案、修改澄清项、指定skill",
+    "actions": {
+      "confirm": "确认方案，进入planning",
+      "revise": "修改需求，回到requirement_optimizing",
+      "reject": "取消任务"
+    }
+  }
+}

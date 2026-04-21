@@ -1,0 +1,101 @@
+@echo off
+REM 🚀 AII工作流智能启动器 - Windows版
+REM 📖 使用方法: ww "你的任务描述"
+REM 🔧 增强版: 智能任务分类、自动恢复、彩色输出
+
+setlocal enabledelayedexpansion
+
+set WORKFLOW_DIR=O:\AII\上下文助手
+set PYTHON_SCRIPT=%WORKFLOW_DIR%\ww_enhanced.py
+
+REM 检查Python脚本是否存在
+if not exist "%PYTHON_SCRIPT%" (
+    echo ❌ 错误: Python脚本不存在: %PYTHON_SCRIPT%
+    echo 请确保 ww_enhanced.py 文件存在
+    pause
+    exit /b 1
+)
+
+REM 检查Python是否可用
+python --version >nul 2>&1
+if errorlevel 1 (
+    echo ❌ 错误: Python未安装或不在PATH中
+    echo 请安装Python 3.6+ 并添加到系统PATH
+    pause
+    exit /b 1
+)
+
+REM 显示欢迎信息（无参数时）
+if "%~1"=="" (
+    echo 🚀 AII工作流智能启动器 v2.0
+    echo ========================================
+    echo.
+    echo 使用方式:
+    echo   ww "任务描述"         启动新任务
+    echo   ww status             查看系统状态
+    echo   ww recover            恢复中断任务
+    echo   ww clean [天数]       清理旧数据
+    echo   ww config 键 值       修改配置
+    echo   ww guide              使用指南
+    echo   ww version            版本信息
+    echo   ww help               完整帮助
+    echo.
+    echo 示例:
+    echo   ww "帮我写一个Python脚本"
+    echo   ww status
+    echo   ww recover
+    echo   ww clean 30
+    echo   ww config auto_copy_to_clipboard false
+    echo.
+    echo 💡 提示: 直接输入任务描述即可，不需要"start"
+    echo.
+    set /p "task_desc=📝 请输入任务描述 (或按回车查看交互菜单): "
+
+    if "!task_desc!"=="" (
+        REM 进入交互模式
+        echo.
+        python "%PYTHON_SCRIPT%"
+    ) else (
+        REM 直接启动任务
+        echo.
+        python "%PYTHON_SCRIPT%" "!task_desc!"
+    )
+
+    pause
+    exit /b 0
+)
+
+REM 检查第一个参数是否是命令
+set "ARG1=%~1"
+set "IS_COMMAND=0"
+
+for %%c in (status recover clean config guide version help) do (
+    if "!ARG1!"=="%%c" set IS_COMMAND=1
+)
+
+REM 处理命令
+if !IS_COMMAND!==1 (
+    REM 如果是命令，直接传递所有参数
+    python "%PYTHON_SCRIPT%" %*
+) else (
+    REM 如果不是命令，则视为任务描述
+    set "TASK_DESC=%*"
+
+    echo 🚀 启动新工作流任务...
+    echo.
+    python "%PYTHON_SCRIPT%" "!TASK_DESC!"
+)
+
+REM 等待用户查看结果
+if errorlevel 0 (
+    echo.
+    echo ✅ 操作完成
+) else (
+    echo.
+    echo ❌ 操作失败，错误代码: !errorlevel!
+)
+
+REM 如果不是静默模式，等待用户按键
+if not "%~1"=="-q" if not "%~1"=="--quiet" (
+    pause
+)

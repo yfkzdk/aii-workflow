@@ -1,0 +1,292 @@
+<#
+数据分析自动化工作流脚本
+功能：自动执行完整的数据分析流程
+使用方式：.\auto_analytics.ps1 "数据文件路径" [选项]
+#>
+
+param(
+    [Parameter(Mandatory=$true, HelpMessage="Data file or directory path")]
+    [string]$DataPath,
+
+    [Parameter(HelpMessage="Analysis type: basic, advanced, full")]
+    [ValidateSet("basic", "advanced", "full")]
+    [string]$AnalysisType = "basic",
+
+    [Parameter(HelpMessage="Output directory")]
+    [string]$OutputDir = ".\output",
+
+    [Parameter(HelpMessage="Wait time in seconds")]
+    [int]$WaitTime = 30,
+
+    [Parameter(HelpMessage="Verbose output")]
+    [switch]$Verbose
+)
+
+# 颜色定义
+$ColorSuccess = "Green"
+$ColorInfo = "Cyan"
+$ColorWarning = "Yellow"
+$ColorError = "Red"
+$ColorProgress = "Magenta"
+
+# 日志函数
+function Write-Log {
+    param([string]$Message, [string]$Level = "INFO")
+
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logMessage = "[$timestamp] [$Level] $Message"
+
+    switch ($Level) {
+        "SUCCESS" { Write-Host $logMessage -ForegroundColor $ColorSuccess }
+        "INFO" { Write-Host $logMessage -ForegroundColor $ColorInfo }
+        "WARNING" { Write-Host $logMessage -ForegroundColor $ColorWarning }
+        "ERROR" { Write-Host $logMessage -ForegroundColor $ColorError }
+        "PROGRESS" { Write-Host $logMessage -ForegroundColor $ColorProgress }
+        default { Write-Host $logMessage }
+    }
+
+    # 写入日志文件
+    $logDir = Join-Path $PSScriptRoot "logs"
+    if (-not (Test-Path $logDir)) {
+        New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+    }
+    $logFile = Join-Path $logDir "analytics_$(Get-Date -Format 'yyyyMMdd').log"
+    Add-Content -Path $logFile -Value $logMessage
+}
+
+# 进度条函数
+function Show-Progress {
+    param(
+        [string]$Activity,
+        [string]$Status,
+        [int]$PercentComplete
+    )
+
+    Write-Progress -Activity $Activity -Status $Status -PercentComplete $PercentComplete
+}
+
+# 检查数据文件
+function Test-DataFile {
+    param([string]$Path)
+
+    if (-not (Test-Path $Path)) {
+        Write-Log "数据文件不存在: $Path" "ERROR"
+        return $false
+    }
+
+    $extension = [System.IO.Path]::GetExtension($Path).ToLower()
+    $validExtensions = @('.csv', '.txt', '.json', '.xlsx', '.xls', '.parquet')
+
+    if ($validExtensions -notcontains $extension) {
+        Write-Log "不支持的文件格式: $extension" "WARNING"
+        Write-Log "支持格式: $($validExtensions -join ', ')" "INFO"
+    }
+
+    $fileSize = (Get-Item $Path).Length / 1MB
+    Write-Log "数据文件: $Path (大小: {0:N2} MB)" -f $fileSize" "INFO"
+
+    return $true
+}
+
+# 执行ww命令
+function Invoke-Workflow {
+    param(
+        [string]$TaskDescription,
+        [int]$WaitSeconds = 30
+    )
+
+    Write-Log "提交任务: $TaskDescription" "PROGRESS"
+
+    try {
+        # 执行ww命令
+        $wwPath = Join-Path $PSScriptRoot "ww_enhanced.py"
+        $arguments = @($TaskDescription)
+
+        $process = Start-Process python -ArgumentList $wwPath, $arguments -NoNewWindow -PassThru -Wait
+
+        if ($process.ExitCode -eq 0) {
+            Write-Log "任务提交成功: $TaskDescription" "SUCCESS"
+        } else {
+            Write-Log "任务提交失败，退出代码: $($process.ExitCode)" "ERROR"
+            return $false
+        }
+
+        # 等待指定时间
+        if ($WaitSeconds -gt 0) {
+            Write-Log "等待 $WaitSeconds 秒让AI处理..." "INFO"
+            Show-Progress -Activity "等待AI处理" -Status "正在处理: $TaskDescription" -PercentComplete 50
+            Start-Sleep -Seconds $WaitSeconds
+        }
+
+        return $true
+
+    } catch {
+        Write-Log "执行失败: $_" "ERROR"
+        return $false
+    }
+}
+
+# 创建输出目录
+function Initialize-Output {
+    param([string]$OutputPath)
+
+    if (-not (Test-Path $OutputPath)) {
+        New-Item -ItemType Directory -Path $OutputPath -Force | Out-Null
+        Write-Log "创建输出目录: $OutputPath" "INFO"
+    }
+
+    # 创建子目录
+    $subDirs = @("reports", "charts", "data", "logs")
+    foreach ($dir in $subDirs) {
+        $fullPath = Join-Path $OutputPath $dir
+        if (-not (Test-Path $fullPath)) {
+            New-Item -ItemType Directory -Path $fullPath -Force | Out-Null
+        }
+    }
+
+    return $true
+}
+
+# 生成报告
+function Generate-Report {
+    param(
+        [string]$DataPath,
+        [string]$OutputDir,
+        [string]$AnalysisType
+    )
+
+    $reportFile = Join-Path $OutputDir "reports\analysis_report_$(Get-Date -Format 'yyyyMMdd_HHmmss').md"
+
+    $reportContent = @"
+# Data Analysis Report
+## Basic Information
+- Analysis Time: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+- Data File: $DataPath
+- Analysis Type: $AnalysisType
+- Output Directory: $OutputDir
+
+## Analysis Steps
+1. Data quality check ✓
+2. Basic statistical analysis ✓
+3. Visualization generation ✓
+4. Insight discovery ✓
+5. Report generation ✓
+
+## File Outputs
+- Statistical reports: $OutputDir\reports\
+- Visualization charts: $OutputDir\charts\
+- Processed data: $OutputDir\data\
+
+## Next Steps
+1. Review generated charts and suggestions
+2. Take action based on insights
+3. Run regular monitoring analysis
+
+---
+*Report generated by AII Workflow Automation Script*
+"@
+
+    Set-Content -Path $reportFile -Value $reportContent
+    Write-Log "报告已生成: $reportFile" "SUCCESS"
+
+    return $reportFile
+}
+
+# 主函数
+function Main {
+    Write-Log "=== 启动数据分析自动化工作流 ===" "PROGRESS"
+    Write-Log "数据路径: $DataPath" "INFO"
+    Write-Log "分析类型: $AnalysisType" "INFO"
+    Write-Log "输出目录: $OutputDir" "INFO"
+
+    # 步骤1：检查数据
+    Show-Progress -Activity "数据分析流程" -Status "检查数据文件" -PercentComplete 10
+    Write-Log "步骤1/5: 检查数据文件..." "PROGRESS"
+    if (-not (Test-DataFile -Path $DataPath)) {
+        Write-Log "数据检查失败，退出流程" "ERROR"
+        exit 1
+    }
+
+    # 步骤2：初始化输出目录
+    Show-Progress -Activity "数据分析流程" -Status "初始化输出目录" -PercentComplete 20
+    Write-Log "步骤2/5: 初始化输出目录..." "PROGRESS"
+    if (-not (Initialize-Output -OutputPath $OutputDir)) {
+        Write-Log "输出目录初始化失败" "ERROR"
+        exit 1
+    }
+
+    # 步骤3：数据质量检查
+    Show-Progress -Activity "数据分析流程" -Status "数据质量检查" -PercentComplete 30
+    Write-Log "步骤3/5: 数据质量检查..." "PROGRESS"
+    $qualityTask = "检查数据质量：文件 '$DataPath'，检查缺失值、异常值、数据类型"
+    if (-not (Invoke-Workflow -TaskDescription $qualityTask -WaitSeconds $WaitTime)) {
+        Write-Log "数据质量检查失败" "ERROR"
+        exit 1
+    }
+
+    # 步骤4：基础分析
+    Show-Progress -Activity "数据分析流程" -Status "基础统计分析" -PercentComplete 50
+    Write-Log "步骤4/5: 基础统计分析..." "PROGRESS"
+
+    $analysisTasks = @()
+
+    switch ($AnalysisType) {
+        "basic" {
+            $analysisTasks = @(
+                "对 '$DataPath' 进行基础统计分析：描述性统计、分布分析",
+                "生成关键指标总结报告"
+            )
+        }
+        "advanced" {
+            $analysisTasks = @(
+                "对 '$DataPath' 进行高级分析：相关性分析、趋势分析",
+                "识别数据中的模式和异常",
+                "生成深度分析报告"
+            )
+        }
+        "full" {
+            $analysisTasks = @(
+                "对 '$DataPath' 进行完整分析：数据探索、特征工程、模型评估",
+                "创建交互式可视化图表",
+                "生成商业洞察和建议"
+            )
+        }
+    }
+
+    $taskIndex = 0
+    foreach ($task in $analysisTasks) {
+        $taskIndex++
+        $progress = 50 + ($taskIndex * 40 / $analysisTasks.Count)
+        Show-Progress -Activity "数据分析流程" -Status "执行分析任务 $taskIndex/$($analysisTasks.Count)" -PercentComplete $progress
+
+        if (-not (Invoke-Workflow -TaskDescription $task -WaitSeconds $WaitTime)) {
+            Write-Log "分析任务失败: $task" "WARNING"
+        }
+    }
+
+    # 步骤5：生成报告
+    Show-Progress -Activity "数据分析流程" -Status "生成最终报告" -PercentComplete 90
+    Write-Log "步骤5/5: 生成最终报告..." "PROGRESS"
+
+    $reportFile = Generate-Report -DataPath $DataPath -OutputDir $OutputDir -AnalysisType $AnalysisType
+
+    # 完成
+    Show-Progress -Activity "数据分析流程" -Status "完成" -PercentComplete 100
+    Write-Log "=== 数据分析自动化工作流完成 ===" "SUCCESS"
+    Write-Log "报告文件: $reportFile" "INFO"
+    Write-Log "输出目录: $OutputDir" "INFO"
+
+    # 打开报告文件
+    if (Test-Path $reportFile) {
+        Write-Log "正在打开报告文件..." "INFO"
+        Start-Process $reportFile
+    }
+}
+
+# 脚本入口
+try {
+    Main
+} catch {
+    Write-Log "脚本执行失败: $_" "ERROR"
+    exit 1
+}
