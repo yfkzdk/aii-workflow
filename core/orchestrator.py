@@ -12,24 +12,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from core.db import StateDB
 from core.agent_caller import AgentCaller
+from core.pipeline_def import PIPELINE, PIPELINE_STEPS
 from core.quality_gates import QualityGateRunner
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from validator import validate_step
-
-# (status, agent_id, needs_user)
-PIPELINE: list[Tuple[str, Optional[str], bool]] = [
-    ("input_collecting", "input_collector", True),
-    ("requirement_optimizing", "requirement_optimizer", False),
-    ("confirmation", None, True),
-    ("planning", "planner", False),
-    ("prompt_optimizing", "prompt_optimizer", False),
-    ("executing", "coder", False),
-    ("verifying", "verifier", False),
-    ("archiving", "archivist", False),
-]
-
-PIPELINE_STEPS: List[str] = [s for s, _, _ in PIPELINE]
 
 TOKEN_WARNING_THRESHOLD = 50000
 

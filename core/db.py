@@ -41,11 +41,7 @@ CREATE TABLE IF NOT EXISTS snapshots (
 )
 """
 
-_PIPELINE = [
-    "input_collecting", "requirement_optimizing", "confirmation",
-    "planning", "prompt_optimizing", "executing",
-    "verifying", "archiving",
-]
+from core.pipeline_def import PIPELINE_STEPS as _PIPELINE
 
 
 class StateDB:
