@@ -11,8 +11,8 @@
 4. 通过 tool_use 返回 transition_state 请求，告知编排器你的输出摘要和下一步建议
 
 ## 你不需要做的
-- 不调用 state_machine.py
-- 不修改 state.json / state.db
+- 不调用 state_machine.py、dag_runner.py 等（已移除）
+- 不修改 state.json（已废弃）或 state.db
 - 不决定管线流转
 - 不调用其他 agent
 
@@ -41,3 +41,18 @@ confirmation 阶段暂停等待用户决策：
 - confirm → 进入 planning
 - revise → 回到 requirement_optimizing
 - reject → 取消任务
+
+## 质量门
+executing/verifying/archiving 阶段会检查 artifacts/ 下的 skill 输出文件：
+- executing: security-review (warn)
+- verifying: simplify (retry — 不通过则回退)
+- archiving: review (log)
+
+## 重试反馈
+验证失败时编排器写入 artifacts/retry_feedback.json，agent 重试时应读取此文件了解失败原因。
+
+## Token 追踪
+编排器累加每次 agent 调用的 token 用量到 state.db。总输入 token 超过 50000 时打印警告。
+
+## 状态存储
+所有状态存储在 state.db（SQLite WAL 模式）。不读写 state.json。

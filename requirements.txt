@@ -1,0 +1,5 @@
+# 核心依赖（Python 标准库，无需安装）
+# sqlite3, json, pathlib, subprocess, unittest, dataclasses
+
+# 可选依赖（SDK 模式需要）
+anthropic>=0.39.0

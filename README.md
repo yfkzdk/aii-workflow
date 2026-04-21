@@ -1,224 +1,73 @@
-# 🚀 AI 工作流系统使用指南
+# 上下文助手 — AI 工作流编排系统
 
-## 📖 系统概述
-这是一个专为VS Code + Claude Code设计的AI工作流系统，旨在解决"400错误"问题，通过状态外部化和三方案对比机制提升工作效率。
+Python 编排器驱动的 AI 工作流系统，通过状态外部化和 Tool Use 审批机制协调 LLM Agent 执行任务。
 
-## 🏗️ 系统架构
+## 架构
+
 ```
-用户需求 → 主调度器 → 输入文件 → 子执行器 → 输出文件 → 用户
-    ↑         ↓           ↓           ↓          ↓       ↓
-    └─── 日志文件 ←─── 状态记录 ←─── 方案对比 ←─── 结果反馈
+┌─────────────┐     ┌──────────────┐     ┌─────────┐     ┌───────────┐
+│ Orchestrator │────▶│ AgentCaller  │────▶│   LLM   │────▶│ Tool Use  │
+│  (Python)    │     │ (SDK/Fallback)│     │ (Claude)│     │  审批      │
+└─────────────┘     └──────────────┘     └─────────┘     └───────────┘
+      │                                       │
+      ▼                                       ▼
+  StateDB (SQLite WAL)              artifacts/ 输出文件
 ```
 
-## 🔧 核心组件
+- **编排器** 驱动管线流转，Agent 只做推理
+- **AgentCaller** 自动选择 SDK 或 subprocess fallback
+- **Tool Use 审批** 防止 Agent 跳步或非法转换
+- **StateDB** SQLite WAL 持久化任务状态，支持快照/回滚
 
-### 1. 主调度器 (Orchestrator)
-**文件**: `.claude/CLAUDE.md`
-**职责**: 
-- 接收用户需求
-- 格式化任务输入文件
-- 委托子Agent执行
-- 压缩结果返回用户
-- 清理中间文件
+## 核心模块
 
-**使用方式**: 将此文件内容复制到Claude Code的Agent定义中
+| 模块 | 职责 |
+|------|------|
+| `core/db.py` | StateDB — SQLite WAL 状态存储、快照、token 追踪 |
+| `core/agent_caller.py` | AgentCaller — SDKCaller + FallbackCaller 工厂 |
+| `core/orchestrator.py` | Orchestrator — 管线驱动、验证、重试、质量门 |
+| `core/quality_gates.py` | QualityGateRunner — 检查 skill 输出文件 |
+| `core/pipeline_def.py` | PIPELINE 权威定义 |
+| `scripts/validator.py` | 步骤输出验证 |
+| `scripts/requirement_optimizer.py` | 需求优化与 Schema 校验 |
+| `scripts/utils.py` | 公共工具函数 |
 
-### 2. 子执行器 (Executor)
-**文件**: `.claude/agents/workflow_agent.md`
-**职责**:
-- 读取任务和历史日志
-- 生成3个独立方案
-- 对比择优
-- 执行验证
-- 记录最优解
+## 管线阶段
 
-### 3. 日志管理器
-**文件**: `scripts/log_manager.py`
-**功能**:
-- 自动过滤失败记录
-- 维护80行精简日志
-- 只保留最优解
-- 跨会话状态同步
+```
+input_collecting → requirement_optimizing → confirmation →
+planning → prompt_optimizing → executing → verifying → archiving
+```
 
-### 4. 工作流工具
-**文件**: `scripts/workflow_utils.py`
-**功能**:
-- 任务验证
-- 历史模式提取
-- Token计数检查
-- 文件清理
+- `input_collecting`: 收集用户需求（等待用户输入）
+- `requirement_optimizing`: Agent 优化需求、生成多方案对比
+- `confirmation`: 用户确认/修订/拒绝（等待用户决策）
+- `planning`: Agent 生成执行计划
+- `prompt_optimizing`: Agent 优化提示词
+- `executing`: Agent 执行代码生成
+- `verifying`: Agent 验证产出 + 质量门检查
+- `archiving`: Agent 归档最终产出
 
-## 📋 使用流程
+## 运行
 
-### 第一步：初始化
 ```bash
-# 确保目录结构完整
-cd /o/AII/上下文助手
-python scripts/log_manager.py "✅ 系统初始化完成"
+# 安装依赖（SDK 模式需要）
+pip install -r requirements.txt
+
+# 运行测试
+python tests/test_phase3.py
+python tests/test_phase1.py
 ```
 
-### 第二步：创建任务
-1. 编辑 `tasks/input_task.md`
-2. 填写完整的任务描述
-3. 运行验证：`python scripts/workflow_utils.py --validate`
+## 项目结构
 
-### 第三步：执行任务
-1. 启动Claude Code并加载主调度器
-2. 输入任务需求
-3. 系统自动：
-   - 创建任务文件
-   - 调用子Agent
-   - 生成3方案对比
-   - 执行最优方案
-   - 记录日志
-
-### 第四步：查看结果
-1. 检查 `tasks/output_result.md`
-2. 查看 `AI_WORKFLOW_LOG.md` 中的记录
-3. 使用压缩后的摘要向用户汇报
-
-## 🎯 三方案对比机制
-
-### 方案生成要求
-1. **方案A**：激进方案（高风险高回报）
-2. **方案B**：平衡方案（综合考量）
-3. **方案C**：保守方案（低风险稳定）
-
-### 对比维度
-- **效率** (40%)：执行速度、资源消耗
-- **可维护性** (30%)：代码清晰度、文档完整性
-- **风险控制** (20%)：失败概率、回滚难度
-- **历史一致性** (10%)：与过往成功模式的契合度
-
-### 决策矩阵
-```markdown
-| 比较维度 | 权重 | 方案A | 方案B | 方案C | 最优 |
-|---------|------|------|------|------|-----|
-| 效率 | 40% | X.X | X.X | X.X | ✓ |
-| 可维护性 | 30% | X.X | X.X | X.X | ✓ |
-| 风险控制 | 20% | X.X | X.X | X.X | ✓ |
-| 历史一致性 | 10% | X.X | X.X | X.X | ✓ |
-| **总分** | **100%** | **X.X** | **X.X** | **X.X** | **方案X** |
 ```
-
-## 🛡️ 400错误防御策略
-
-### 1. 上下文隔离
-- 所有状态存储在外部文件中
-- 每次会话使用干净的文件交接
-- 避免历史对话污染
-
-### 2. 输出压缩
-- 主调度器响应 ≤ 300 tokens
-- 子Agent输出通过文件传递
-- 只保留：最优方案路径、验证结论、下一步建议
-
-### 3. 自动分页
-- 超过2000 tokens立即分段
-- 使用文件作为中间存储
-- 逐步输出结果
-
-### 4. 日志精简
-- 最多80行历史记录
-- 自动删除失败记录
-- 只保留成功方案和最优解
-
-## 🔍 调试与优化
-
-### 常见问题排查
-1. **日志不更新**
-   ```bash
-   python scripts/log_manager.py "✅ 测试日志条目"
-   ```
-
-2. **任务验证失败**
-   ```bash
-   python scripts/workflow_utils.py --validate
-   ```
-
-3. **Token超限警告**
-   ```bash
-   python scripts/workflow_utils.py --token-check "您的文本内容"
-   ```
-
-### 性能优化
-1. **日志管理**：定期检查日志文件大小
-2. **文件清理**：任务完成后自动清空中间文件
-3. **历史分析**：提取成功模式优化决策
-   ```bash
-   python scripts/workflow_utils.py --history 10
-   ```
-
-## 📈 最佳实践
-
-### 1. 任务描述
-- 明确具体的目标
-- 列出所有约束条件
-- 指定期望输出格式
-- 提供历史参考
-
-### 2. 方案对比
-- 三个方案必须有实质性差异
-- 每个方案都要有具体的数据支持
-- 风险分析要具体，不能泛泛而谈
-
-### 3. 结果交付
-- 压缩到300 tokens以内
-- 重点突出最优方案路径
-- 包含验证数据和下一步建议
-
-### 4. 日志记录
-- 每条记录都要有"验证意义"
-- 使用✅标记成功记录
-- 定期检查日志长度
-
-## 🚨 紧急处理
-
-### 遇到400错误时
-1. **立即停止**：中断当前响应
-2. **简化任务**：拆分复杂需求
-3. **检查文件**：验证 `tasks/input_task.md` 是否过于复杂
-4. **重新开始**：生成简化版本的任务
-
-### 日志溢出时
-1. **自动压缩**：只保留最近50条成功记录
-2. **手动清理**：删除最旧的历史记录
-3. **重新初始化**：`python scripts/log_manager.py "🔄 日志压缩完成"`
-
-## 📚 文件说明
-
-### 核心文件
-- `AI_WORKFLOW_LOG.md`：跨会话状态记录
-- `.claude/CLAUDE.md`：主调度器定义
-- `.claude/agents/workflow_agent.md`：子执行器定义
-
-### 任务文件
-- `tasks/input_task.md`：任务输入模板
-- `tasks/output_result.md`：任务输出模板
-
-### 工具脚本
-- `scripts/log_manager.py`：日志管理
-- `scripts/workflow_utils.py`：工作流工具
-
-## 🔄 更新与维护
-
-### 版本管理
-```bash
-# 备份当前配置
-cp -r .claude .claude.backup
-cp scripts/*.py scripts/backup/
+core/           核心模块（StateDB, Orchestrator, AgentCaller, QualityGates）
+scripts/        辅助脚本（validator, requirement_optimizer, utils）
+tests/          测试套件
+config/         配置文件（requirement_schema.json 等）
+workflows/      运行时任务目录
+.claude/        Agent 定义文件（agents/*.md）
+demo/           端到端 demo
+archive/        隔离的非核心目录（bin, powershell, vscode-extension, backup）
 ```
-
-### 自定义扩展
-1. 修改 `.claude/CLAUDE.md` 调整主调度逻辑
-2. 修改 `.claude/agents/workflow_agent.md` 调整方案生成逻辑
-3. 修改 `scripts/log_manager.py` 调整日志格式
-
-## 🎉 开始使用
-1. 将 `.claude/CLAUDE.md` 内容复制到Claude Code Agent配置
-2. 根据需要修改模板文件
-3. 开始您的高效AI协作！
-
----
-
-**提示**：系统设计为"一次配置，长期使用"。所有状态都保存在文件中，支持跨会话、跨窗口的无缝协作。
