@@ -1,0 +1,113 @@
+{
+  "version": 2,
+  "created": "2026-04-21T00:00:00Z",
+  "session_config": {
+    "concurrency_mode": "exclusive",
+    "max_tasks_per_session": 20,
+    "max_sessions": 50
+  },
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "A4: 大扫除-删除僵尸文件+隔离非核心到archive",
+      "status": "pending",
+      "priority": "P0",
+      "depends_on": [],
+      "attempts": 0,
+      "max_attempts": 3,
+      "started_at_commit": null,
+      "validation": {
+        "command": "cd 'O:/AII/上下文助手/' && python -c \"import os; root=os.listdir('.'); required=['README.md','用户使用说明.md','core','scripts','tests','config','workflows','archive']; missing=[r for r in required if r not in root]; assert not missing, f'Missing: {missing}'; zombies=[f for f in root if f.endswith('.py') and f not in ['__init__.py']]; assert not zombies, f'Zombie .py files: {zombies}'; print('A4 VALIDATION PASS')\"",
+        "timeout_seconds": 30
+      },
+      "on_failure": {
+        "cleanup": null
+      },
+      "error_log": [],
+      "checkpoints": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-002",
+      "title": "A5: 修复state.json引用→StateDB",
+      "status": "pending",
+      "priority": "P0",
+      "depends_on": ["task-001"],
+      "attempts": 0,
+      "max_attempts": 3,
+      "started_at_commit": null,
+      "validation": {
+        "command": "cd 'O:/AII/上下文助手/' && python -c \"from scripts.utils import scan_workflows; from scripts.requirement_optimizer import get_full_input; print('A5 VALIDATION PASS')\"",
+        "timeout_seconds": 30
+      },
+      "on_failure": {
+        "cleanup": null
+      },
+      "error_log": [],
+      "checkpoints": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-003",
+      "title": "A6: 基础设施-requirements.txt+CLAUDE.md+README更新",
+      "status": "pending",
+      "priority": "P1",
+      "depends_on": ["task-001"],
+      "attempts": 0,
+      "max_attempts": 3,
+      "started_at_commit": null,
+      "validation": {
+        "command": "cd 'O:/AII/上下文助手/' && test -s requirements.txt && grep -q 'anthropic' requirements.txt && grep -q 'state.db' .claude/CLAUDE.md && grep -qi 'orchestrator' README.md && echo 'A6 VALIDATION PASS'",
+        "timeout_seconds": 15
+      },
+      "on_failure": {
+        "cleanup": null
+      },
+      "error_log": [],
+      "checkpoints": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-004",
+      "title": "A7: 端到端demo",
+      "status": "pending",
+      "priority": "P1",
+      "depends_on": ["task-002"],
+      "attempts": 0,
+      "max_attempts": 3,
+      "started_at_commit": null,
+      "validation": {
+        "command": "cd 'O:/AII/上下文助手/' && python demo/demo_phase3.py 2>&1 | tail -1 | grep -q 'DEMO: ALL STAGES PASSED' && echo 'A7 VALIDATION PASS'",
+        "timeout_seconds": 60
+      },
+      "on_failure": {
+        "cleanup": null
+      },
+      "error_log": [],
+      "checkpoints": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-005",
+      "title": "A8: 最终验证+打Tag",
+      "status": "pending",
+      "priority": "P0",
+      "depends_on": ["task-003", "task-004"],
+      "attempts": 0,
+      "max_attempts": 3,
+      "started_at_commit": null,
+      "validation": {
+        "command": "cd 'O:/AII/上下文助手/' && python tests/test_phase1.py 2>&1 | tail -1 | grep -q 'OK\\|PASSED' && python tests/test_phase3.py 2>&1 | tail -1 | grep -q 'OK\\|PASSED' && git tag -l v0.4.0 | grep -q v0.4.0 && echo 'A8 VALIDATION PASS'",
+        "timeout_seconds": 120
+      },
+      "on_failure": {
+        "cleanup": null
+      },
+      "error_log": [],
+      "checkpoints": [],
+      "completed_at": null
+    }
+  ],
+  "session_count": 1,
+  "last_session": "2026-04-21T00:00:00Z"
+}
