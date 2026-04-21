@@ -213,6 +213,24 @@ class StateDB:
         print(f"[StateDB] 重试递增: {task_id} retry_count={state['retry_count']}")
         return state["retry_count"]
 
+    def reset_retry_count(self, task_id: str) -> None:
+        """重置 retry_count 为 0。"""
+        conn = self._connect()
+        conn.execute(
+            "UPDATE task_state SET retry_count=0, updated_at=? WHERE task_id=?",
+            (datetime.now().isoformat(), task_id),
+        )
+        conn.commit()
+
+    def set_user_input(self, task_id: str, user_input_json: str) -> None:
+        """更新 user_input_json。"""
+        conn = self._connect()
+        conn.execute(
+            "UPDATE task_state SET user_input_json=?, updated_at=? WHERE task_id=?",
+            (user_input_json, datetime.now().isoformat(), task_id),
+        )
+        conn.commit()
+
     def list_tasks(self) -> List[Dict[str, Any]]:
         """列出所有任务状态。"""
         conn = self._connect()
