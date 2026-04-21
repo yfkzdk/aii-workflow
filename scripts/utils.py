@@ -5,6 +5,8 @@ import os
 import tempfile
 from pathlib import Path
 
+from core.db import StateDB
+
 
 def atomic_write_json(filepath: Path, data: dict):
     """原子写入JSON文件，防止写入中断导致数据损坏"""
@@ -17,7 +19,7 @@ def atomic_write_json(filepath: Path, data: dict):
 
 
 def scan_workflows(workflows_dir: str) -> list:
-    """扫描workflows目录下所有任务，返回状态列表"""
+    """扫描workflows目录下所有任务，使用StateDB读取状态"""
     wf_path = Path(workflows_dir)
     if not wf_path.exists():
         return []
@@ -26,23 +28,29 @@ def scan_workflows(workflows_dir: str) -> list:
     for task_dir in sorted(wf_path.iterdir()):
         if not task_dir.is_dir():
             continue
-        state_file = task_dir / "state.json"
-        if not state_file.exists():
+        db_file = task_dir / "state.db"
+        if not db_file.exists():
             continue
 
         try:
-            with open(state_file, 'r', encoding='utf-8') as f:
-                state = json.load(f)
+            db = StateDB(str(task_dir))
+            # task_id 从目录名推导（StateDB 可能尚未 init）
+            task_id = task_dir.name
+            try:
+                state = db.get_state(task_id)
+            except ValueError:
+                continue
             tasks.append({
-                "task_id": state.get("task_id", task_dir.name),
+                "task_id": state.get("task_id", task_id),
                 "status": state.get("status", "unknown"),
-                "pipeline": state.get("pipeline", []),
-                "step_index": state.get("current_step_index", 0),
+                "pipeline": json.loads(state.get("pipeline_json", "[]")),
+                "step_index": state.get("step_index", 0),
                 "created_at": state.get("created_at", ""),
                 "updated_at": state.get("updated_at", ""),
                 "dir": str(task_dir)
             })
-        except (json.JSONDecodeError, OSError):
+            db.close()
+        except Exception:
             continue
 
     return tasks
@@ -54,6 +62,11 @@ def format_status_line(task: dict) -> str:
     status = task.get("status", "unknown")
     step_idx = task.get("step_index", 0)
     pipeline = task.get("pipeline", [])
+    if isinstance(pipeline, str):
+        try:
+            pipeline = json.loads(pipeline)
+        except (json.JSONDecodeError, TypeError):
+            pipeline = []
     updated = task.get("updated_at", "")
 
     current_step = pipeline[step_idx] if 0 <= step_idx < len(pipeline) else ("cancelled" if status == "cancelled" else "?")

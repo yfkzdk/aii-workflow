@@ -14,10 +14,12 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
+from core.db import StateDB
+
 
 def get_full_input(task_dir: str) -> str:
     """
-    获取完整用户输入（兼容 input_collector.py）
+    获取完整用户输入（从 StateDB 读取）
 
     Args:
         task_dir: 任务目录路径
@@ -25,21 +27,29 @@ def get_full_input(task_dir: str) -> str:
     Returns:
         拼接后的完整用户输入文本
     """
-    state_file = Path(task_dir) / "state.json"
+    db_path = Path(task_dir) / "state.db"
+    if not db_path.exists():
+        return ""
 
-    if not state_file.exists():
-        raise FileNotFoundError(f"state.json not found: {state_file}")
+    try:
+        db = StateDB(task_dir)
+        task_id = Path(task_dir).name
+        state = db.get_state(task_id)
+        db.close()
+    except (ValueError, Exception):
+        return ""
 
-    with open(state_file, "r", encoding="utf-8") as f:
-        state = json.load(f)
+    user_input_json = state.get("user_input_json", "{}")
+    try:
+        user_input = json.loads(user_input_json) if isinstance(user_input_json, str) else user_input_json
+    except json.JSONDecodeError:
+        return ""
 
-    user_input = state.get("user_input", {})
     chunks = user_input.get("chunks", [])
 
     if not chunks:
         return ""
 
-    # 按时间戳排序并拼接
     sorted_chunks = sorted(chunks, key=lambda x: x.get("seq", 0))
     return "\n\n".join(chunk.get("content", "") for chunk in sorted_chunks)
 
@@ -267,7 +277,7 @@ def load_optimization(task_dir: str) -> Optional[Dict[str, Any]]:
 
 def get_selected_proposal(task_dir: str) -> Optional[Dict[str, Any]]:
     """
-    获取用户选择的方案
+    获取用户选择的方案（从 StateDB 读取）
 
     Args:
         task_dir: 任务目录路径
@@ -275,15 +285,24 @@ def get_selected_proposal(task_dir: str) -> Optional[Dict[str, Any]]:
     Returns:
         选中的方案字典，若未确认返回 None
     """
-    state_file = Path(task_dir) / "state.json"
-
-    if not state_file.exists():
+    db_path = Path(task_dir) / "state.db"
+    if not db_path.exists():
         return None
 
-    with open(state_file, "r", encoding="utf-8") as f:
-        state = json.load(f)
+    try:
+        db = StateDB(task_dir)
+        task_id = Path(task_dir).name
+        state = db.get_state(task_id)
+        db.close()
+    except (ValueError, Exception):
+        return None
 
-    confirmation = state.get("confirmation", {})
+    confirmation_json = state.get("confirmation_json", "{}")
+    try:
+        confirmation = json.loads(confirmation_json) if isinstance(confirmation_json, str) else confirmation_json
+    except json.JSONDecodeError:
+        return None
+
     selected_id = confirmation.get("selected_proposal")
 
     if not selected_id:
