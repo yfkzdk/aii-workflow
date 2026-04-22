@@ -141,7 +141,10 @@ class StateDB:
         conn.commit()
         print(f"[StateDB] 状态更新: {task_id} → {new_status} (step={step_index})")
         result = self.get_state(task_id)
-        result["next_agent"] = next_agent
+        # next_agent 是调用方传入的提示信息，不存入 DB
+        # 仅在本次返回中携带，下次 get_state() 会丢失
+        if next_agent is not None:
+            result["_next_agent_hint"] = next_agent
         return result
 
     def save_snapshot(self, task_id: str, label: str = "") -> int:
