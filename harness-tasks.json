@@ -10,12 +10,12 @@
     {
       "id": "task-006",
       "title": "B1: 修get_full_input数据契约断裂",
-      "status": "pending",
+      "status": "completed",
       "priority": "P0",
       "depends_on": [],
-      "attempts": 0,
+      "attempts": 1,
       "max_attempts": 3,
-      "started_at_commit": null,
+      "started_at_commit": "96043c8",
       "validation": {
         "command": "cd 'O:/AII/上下文助手/' && python -c \"from scripts.requirement_optimizer import get_full_input; import tempfile, json, os; from core.db import StateDB; d=tempfile.mkdtemp(); db=StateDB(d); db.init_task('TEST'); db.set_user_input('TEST', json.dumps({'chunks': [{'seq':0,'content':'hello'},{'seq':1,'content':'world'}]}, ensure_ascii=False)); result=get_full_input(d); assert 'hello' in result and 'world' in result, f'Data contract broken: {result}'; print('B1 VALIDATION PASS')\"",
         "timeout_seconds": 30
@@ -23,17 +23,17 @@
       "on_failure": {"cleanup": null},
       "error_log": [],
       "checkpoints": [],
-      "completed_at": null
+      "completed_at": "2026-04-22T15:00:00Z"
     },
     {
       "id": "task-007",
       "title": "B2: 更新6个agent.md去掉state_machine.py引用",
-      "status": "pending",
+      "status": "completed",
       "priority": "P0",
       "depends_on": [],
-      "attempts": 0,
+      "attempts": 1,
       "max_attempts": 3,
-      "started_at_commit": null,
+      "started_at_commit": "c159bc3",
       "validation": {
         "command": "cd 'O:/AII/上下文助手/' && for f in .claude/agents/*.md; do if grep -q 'state_machine' \"$f\" 2>/dev/null; then echo \"FAIL: $f still references state_machine\"; exit 1; fi; done && echo 'B2 VALIDATION PASS'",
         "timeout_seconds": 15
@@ -41,35 +41,35 @@
       "on_failure": {"cleanup": null},
       "error_log": [],
       "checkpoints": [],
-      "completed_at": null
+      "completed_at": "2026-04-22T15:10:00Z"
     },
     {
       "id": "task-008",
       "title": "B3: 创建input_collector.md agent定义",
-      "status": "pending",
+      "status": "completed",
       "priority": "P0",
       "depends_on": [],
-      "attempts": 0,
+      "attempts": 1,
       "max_attempts": 3,
-      "started_at_commit": null,
+      "started_at_commit": "d6a465d",
       "validation": {
-        "command": "cd 'O:/AII/上下文助手/' && test -f .claude/agents/input_collector.md && grep -q 'input_collecting' .claude/agents/input_collector.md && echo 'B3 VALIDATION PASS'",
+        "command": "cd 'O:/AII/上下文助手/' && test -f .claude/agents/input_collector.md && grep -q 'transition_state' .claude/agents/input_collector.md && echo 'B3 VALIDATION PASS'",
         "timeout_seconds": 15
       },
       "on_failure": {"cleanup": null},
       "error_log": [],
       "checkpoints": [],
-      "completed_at": null
+      "completed_at": "2026-04-22T15:15:00Z"
     },
     {
       "id": "task-009",
       "title": "B4: 删除残留僵尸文件",
-      "status": "pending",
+      "status": "completed",
       "priority": "P1",
       "depends_on": [],
-      "attempts": 0,
+      "attempts": 1,
       "max_attempts": 3,
-      "started_at_commit": null,
+      "started_at_commit": "05663db",
       "validation": {
         "command": "cd 'O:/AII/上下文助手/' && for f in demo/run_demo.py workflows/tests/e2e_test.py '一键测试报告.json' '启动助手.html'; do if [ -f \"$f\" ]; then echo \"FAIL: $f still exists\"; exit 1; fi; done && echo 'B4 VALIDATION PASS'",
         "timeout_seconds": 15
@@ -77,17 +77,17 @@
       "on_failure": {"cleanup": null},
       "error_log": [],
       "checkpoints": [],
-      "completed_at": null
+      "completed_at": "2026-04-22T15:20:00Z"
     },
     {
       "id": "task-010",
       "title": "B5: 修update_status注入next_agent字段问题",
-      "status": "pending",
+      "status": "completed",
       "priority": "P1",
       "depends_on": [],
-      "attempts": 0,
+      "attempts": 1,
       "max_attempts": 3,
-      "started_at_commit": null,
+      "started_at_commit": "23ef0f7",
       "validation": {
         "command": "cd 'O:/AII/上下文助手/' && python -c \"from core.db import StateDB; import tempfile; d=tempfile.mkdtemp(); db=StateDB(d); db.init_task('T1'); r=db.update_status('T1','requirement_optimizing'); r2=db.get_state('T1'); assert 'next_agent' not in r2, f'next_agent leaked into DB: {r2.keys()}'; print('B5 VALIDATION PASS')\"",
         "timeout_seconds": 30
@@ -95,17 +95,17 @@
       "on_failure": {"cleanup": null},
       "error_log": [],
       "checkpoints": [],
-      "completed_at": null
+      "completed_at": "2026-04-22T15:25:00Z"
     },
     {
       "id": "task-011",
       "title": "B6: 更新用户使用说明.md",
-      "status": "pending",
+      "status": "completed",
       "priority": "P1",
       "depends_on": ["task-009"],
-      "attempts": 0,
+      "attempts": 1,
       "max_attempts": 3,
-      "started_at_commit": null,
+      "started_at_commit": "2a1fc4e",
       "validation": {
         "command": "cd 'O:/AII/上下文助手/' && test -f '用户使用说明.md' && ! grep -q 'ww_fixed' '用户使用说明.md' && ! grep -q '极简启动器' '用户使用说明.md' && echo 'B6 VALIDATION PASS'",
         "timeout_seconds": 15
@@ -113,17 +113,17 @@
       "on_failure": {"cleanup": null},
       "error_log": [],
       "checkpoints": [],
-      "completed_at": null
+      "completed_at": "2026-04-22T15:30:00Z"
     },
     {
       "id": "task-012",
       "title": "B7: 更新requirement_optimizer.md去掉已删脚本引用",
-      "status": "pending",
+      "status": "completed",
       "priority": "P0",
       "depends_on": ["task-007"],
-      "attempts": 0,
+      "attempts": 1,
       "max_attempts": 3,
-      "started_at_commit": null,
+      "started_at_commit": "d6a465d",
       "validation": {
         "command": "cd 'O:/AII/上下文助手/' && ! grep -q 'input_collector.py' .claude/agents/requirement_optimizer.md && ! grep -q 'skill_auto_matcher.py' .claude/agents/requirement_optimizer.md && ! grep -q 'state.json' .claude/agents/requirement_optimizer.md && echo 'B7 VALIDATION PASS'",
         "timeout_seconds": 15
@@ -131,17 +131,17 @@
       "on_failure": {"cleanup": null},
       "error_log": [],
       "checkpoints": [],
-      "completed_at": null
+      "completed_at": "2026-04-22T15:10:00Z"
     },
     {
       "id": "task-013",
       "title": "B8: 最终验证+打Tag v0.5.0",
-      "status": "pending",
+      "status": "completed",
       "priority": "P0",
       "depends_on": ["task-006", "task-007", "task-008", "task-009", "task-010", "task-011", "task-012"],
-      "attempts": 0,
+      "attempts": 1,
       "max_attempts": 3,
-      "started_at_commit": null,
+      "started_at_commit": "741ac4e",
       "validation": {
         "command": "cd 'O:/AII/上下文助手/' && python tests/test_phase1.py 2>&1 | tail -1 | grep -q 'OK\\|PASSED' && python tests/test_phase3.py 2>&1 | tail -1 | grep -q 'OK\\|PASSED' && python demo/demo_phase3.py 2>&1 | tail -1 | grep -q 'DEMO: ALL STAGES PASSED' && git tag -l v0.5.0 | grep -q v0.5.0 && echo 'B8 VALIDATION PASS'",
         "timeout_seconds": 120
@@ -149,9 +149,9 @@
       "on_failure": {"cleanup": null},
       "error_log": [],
       "checkpoints": [],
-      "completed_at": null
+      "completed_at": "2026-04-22T15:35:00Z"
     }
   ],
   "session_count": 2,
-  "last_session": "2026-04-22T00:00:00Z"
+  "last_session": "2026-04-22T15:35:00Z"
 }
