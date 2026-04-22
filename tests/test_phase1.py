@@ -153,11 +153,15 @@ class TestOrchestrator(unittest.TestCase):
         self.assertEqual(result["step_index"], 1)
 
     def test_handle_user_input(self):
-        """handle_user_input 追加输入。"""
+        """handle_user_input 追加输入（结构化chunk）。"""
         result = self.orch.handle_user_input("帮我写个排序算法")
         import json
         user_input = json.loads(result["user_input_json"])
-        self.assertIn("帮我写个排序算法", user_input["chunks"])
+        # chunks 现在是字典列表 [{"seq": 0, "content": "..."}]
+        chunks = user_input["chunks"]
+        self.assertTrue(len(chunks) > 0)
+        self.assertEqual(chunks[0]["content"], "帮我写个排序算法")
+        self.assertEqual(chunks[0]["seq"], 0)
 
     def test_run_pause_at_input(self):
         """run 在 input_collecting 阶段暂停。"""
