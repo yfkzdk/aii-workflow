@@ -33,7 +33,12 @@ def get_full_input(task_dir: str) -> str:
 
     try:
         db = StateDB(task_dir)
-        task_id = Path(task_dir).name
+        # 从 DB 中读取所有任务，取第一条
+        tasks = db.list_tasks()
+        if not tasks:
+            db.close()
+            return ""
+        task_id = tasks[0]["task_id"]
         state = db.get_state(task_id)
         db.close()
     except (ValueError, Exception):
@@ -50,8 +55,12 @@ def get_full_input(task_dir: str) -> str:
     if not chunks:
         return ""
 
-    sorted_chunks = sorted(chunks, key=lambda x: x.get("seq", 0))
-    return "\n\n".join(chunk.get("content", "") for chunk in sorted_chunks)
+    # 兼容两种格式：字典列表 {"seq":N,"content":"..."} 或字符串列表
+    sorted_chunks = sorted(chunks, key=lambda x: x.get("seq", 0) if isinstance(x, dict) else 0)
+    return "\n\n".join(
+        chunk.get("content", "") if isinstance(chunk, dict) else str(chunk)
+        for chunk in sorted_chunks
+    )
 
 
 def load_schema() -> Dict[str, Any]:
@@ -291,7 +300,11 @@ def get_selected_proposal(task_dir: str) -> Optional[Dict[str, Any]]:
 
     try:
         db = StateDB(task_dir)
-        task_id = Path(task_dir).name
+        tasks = db.list_tasks()
+        if not tasks:
+            db.close()
+            return None
+        task_id = tasks[0]["task_id"]
         state = db.get_state(task_id)
         db.close()
     except (ValueError, Exception):

@@ -285,11 +285,11 @@ class Orchestrator:
     # ---- 用户交互 ----
 
     def handle_user_input(self, content: str) -> Dict[str, Any]:
-        """追加用户输入到 db。"""
+        """追加用户输入到 db（结构化chunk，含seq编号）。"""
         state = self.db.get_state(self.task_id)
         user_input: Dict[str, Any] = json.loads(state.get("user_input_json", "{}"))
         chunks: list = user_input.get("chunks", [])
-        chunks.append(content)
+        chunks.append({"seq": len(chunks), "content": content})
         user_input["chunks"] = chunks
 
         self.db.set_user_input(self.task_id, json.dumps(user_input, ensure_ascii=False))
@@ -429,8 +429,16 @@ class Orchestrator:
         parts = [f"## 任务状态\n- status: {state['status']}\n- step: {state['step_index']}"]
 
         user_input = json.loads(state.get("user_input_json", "{}"))
-        if user_input.get("chunks"):
-            parts.append("## 用户输入\n" + "\n".join(user_input["chunks"]))
+        chunks = user_input.get("chunks", [])
+        if chunks:
+            # 兼容两种格式：字典列表 {"seq":N,"content":"..."} 或字符串列表
+            chunk_texts = []
+            for c in chunks:
+                if isinstance(c, dict):
+                    chunk_texts.append(c.get("content", ""))
+                else:
+                    chunk_texts.append(str(c))
+            parts.append("## 用户输入\n" + "\n".join(chunk_texts))
 
         confirmation = json.loads(state.get("confirmation_json", "{}"))
         if confirmation.get("status") and confirmation["status"] != "pending":
