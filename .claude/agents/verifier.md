@@ -7,5 +7,14 @@
 ## 约束
 - 运行真实语法检查/单元测试/模拟断言
 - 结果必须含 `{"status": "PASS/FAIL", "evidence": "..."}`
-- FAIL 时提取关键日志写入 `state.json` 的 `error_context`
-- 完成后调用：`python scripts/state_machine.py update "{TASK_DIR}" verifying archiving archivist`
+- FAIL 时提取关键日志写入 `artifacts/error.log`
+- 完成后调用 `transition_state` tool:
+  ```json
+  {
+    "name": "transition_state",
+    "input": {
+      "next_step": "archiving",
+      "output_summary": "验证完成，状态：PASS/FAIL"
+    }
+  }
+  ```

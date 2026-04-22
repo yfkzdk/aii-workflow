@@ -10,7 +10,7 @@
 - **多方案对比**：提供最小、标准、完整三档方案
 
 ## 输入
-- `state.json` 中 `user_input.chunks` 的完整拼接（通过 `input_collector.py get` 获取）
+- 从 `state.db` 读取 `user_input_json` 中的 chunks（通过 `scripts/requirement_optimizer.py get_input` 获取）
 
 ## 输出
 - `artifacts/optimized_requirement.json`（必须符合 `config/requirement_schema.json`）
@@ -19,7 +19,7 @@
 
 ### 步骤1：获取完整输入
 ```bash
-python scripts/input_collector.py get <task_dir>
+python scripts/requirement_optimizer.py get_input <task_dir>
 ```
 **重要**：将所有 chunks 拼接为完整需求，绝不可分割处理。
 
@@ -66,11 +66,8 @@ python scripts/input_collector.py get <task_dir>
 **硬性规则**：`confidence < 0.8` 必须设置 `needs_user_confirm: true`
 
 ### 步骤3：读取Skill注册表并动态匹配
-```bash
-python scripts/skill_auto_matcher.py match <agent_id> "<task_description>"
-```
 
-必须读取 `config/skills.json` 中的 `skill_registry`，基于任务特征动态匹配：
+读取 `config/skills.json` 中的 `skill_registry`，基于任务特征动态匹配：
 - 标签相似度匹配（`match_tags`）
 - 性能数据考量（`performance_profile`）
 - 适用Agent限制（`applicable_agents`）
@@ -125,20 +122,12 @@ python scripts/skill_auto_matcher.py match <agent_id> "<task_description>"
     "parallel_with": null
   },
   {
-    "agent_id": "coder_frontend",
-    "role": "前端开发",
-    "responsibility": "编写前端界面与交互逻辑",
+    "agent_id": "coder",
+    "role": "开发",
+    "responsibility": "编写代码",
     "input_from": "planner",
     "skills": [{"id": "simplify", "source": "auto_match", "match_score": 0.92}],
     "parallel_with": null
-  },
-  {
-    "agent_id": "coder_backend",
-    "role": "后端开发",
-    "responsibility": "编写后端服务与API",
-    "input_from": "planner",
-    "skills": [{"id": "security-review", "source": "auto_match", "match_score": 0.88}],
-    "parallel_with": "coder_frontend"
   }
 ]
 ```
@@ -151,24 +140,19 @@ python scripts/skill_auto_matcher.py match <agent_id> "<task_description>"
 ### 步骤6：DAG预览生成
 ```json
 {
-  "nodes": ["plan", "exec_fe", "exec_be", "integrate", "verify", "archive"],
+  "nodes": ["plan", "exec", "verify", "archive"],
   "edges": [
-    ["plan", "exec_fe"],
-    ["plan", "exec_be"],
-    ["exec_fe", "integrate"],
-    ["exec_be", "integrate"],
-    ["integrate", "verify"],
+    ["plan", "exec"],
+    ["exec", "verify"],
     ["verify", "archive"]
   ],
-  "parallel_groups": [
-    ["exec_fe", "exec_be"]
-  ]
+  "parallel_groups": []
 }
 ```
 
 ### 步骤7：保存结果
 ```bash
-python scripts/requirement_optimizer.py optimize <task_dir>
+python scripts/requirement_optimizer.py placeholder <task_dir>
 ```
 
 输出文件必须通过 Schema 校验：
@@ -177,8 +161,15 @@ python scripts/requirement_optimizer.py validate <task_dir>
 ```
 
 ### 步骤8：更新状态
-```bash
-python scripts/state_machine.py update <task_dir> requirement_optimizing confirmation user
+完成后调用 `transition_state` tool:
+```json
+{
+  "name": "transition_state",
+  "input": {
+    "next_step": "confirmation",
+    "output_summary": "需求优化完成，方案数：N，推荐：B"
+  }
+}
 ```
 
 ## 输出格式约束

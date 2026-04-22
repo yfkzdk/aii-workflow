@@ -6,5 +6,14 @@
 
 ## 约束
 - 严格按 prompt 执行，不添加未授权逻辑
-- 完成后调用：`python scripts/state_machine.py update "{TASK_DIR}" executing verifying verifier`
-- 若遇依赖/语法阻断，记录至 `artifacts/error.log` 并上报状态机，不盲目重试
+- 完成后调用 `transition_state` tool:
+  ```json
+  {
+    "name": "transition_state",
+    "input": {
+      "next_step": "verifying",
+      "output_summary": "代码生成完成，文件列表：..."
+    }
+  }
+  ```
+- 若遇依赖/语法阻断，记录至 `artifacts/error.log` 并上报，不盲目重试
