@@ -1,5 +1,18 @@
 # 核心依赖（Python 标准库，无需安装）
 # sqlite3, json, pathlib, subprocess, unittest, dataclasses
 
-# 可选依赖（SDK 模式需要）
-anthropic>=0.39.0
+# API 客户端依赖
+openai>=1.0.0              # DeepSeek/OpenAI API 支持
+python-dotenv>=1.0.0       # 环境变量管理
+anthropic>=0.39.0          # Anthropic Claude API（可选）
+
+# 测试依赖
+pytest>=7.0.0              # 测试框架
+pytest-cov>=4.0.0          # 覆盖率报告
+
+# 代码质量工具
+mypy>=1.0.0                # 类型检查
+pylint>=2.0.0              # 代码质量检查
+
+# 文档生成
+pdoc>=14.0.0               # API 文档生成
