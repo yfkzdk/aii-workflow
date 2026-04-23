@@ -1,13 +1,20 @@
 """AgentCaller -- Agent 调用器。
 
-阶段三：SDKCaller (Anthropic SDK) + FallbackCaller (subprocess)。
+阶段三：SDKCaller (Anthropic SDK) + FallbackCaller (subprocess) + OpenAICaller (DeepSeek/OpenAI)。
 工厂方法 create() 自动选择。
 """
 
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 AGENT_DIR = ".claude/agents"
 CALLER_TIMEOUT = 300
@@ -60,7 +67,20 @@ class AgentCaller:
 
     @classmethod
     def create(cls, project_root: str = ".") -> "AgentCaller":
-        """工厂方法：有 anthropic 库用 SDKCaller，否则 FallbackCaller。"""
+        """工厂方法：优先使用 DeepSeek/OpenAI，其次 Anthropic SDK，最后 FallbackCaller。"""
+        # 优先尝试 OpenAI/DeepSeek
+        try:
+            import openai
+            from dotenv import load_dotenv
+            load_dotenv()
+
+            api_key = os.getenv('OPENAI_API_KEY')
+            if api_key:
+                return OpenAICaller(project_root)
+        except Exception:
+            pass
+
+        # 其次尝试 Anthropic
         try:
             import anthropic  # noqa: F401
             return SDKCaller(project_root)
@@ -210,3 +230,78 @@ class SDKCaller(AgentCaller):
         if "token" in err_str or "too long" in err_str or "context_length" in err_str:
             return f"Token 超限: {exc}"
         return f"API 错误 ({err_type}): {exc}"
+
+
+class OpenAICaller(AgentCaller):
+    """OpenAI/DeepSeek 兼容 API 调用器"""
+
+    def __init__(self, project_root: str = ".") -> None:
+        super().__init__(project_root)
+
+        self.api_key = os.getenv('OPENAI_API_KEY')
+        self.base_url = os.getenv('OPENAI_BASE_URL', 'https://api.openai.com/v1')
+        self.model = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
+
+        if not self.api_key:
+            print("[OpenAICaller] OPENAI_API_KEY 未找到")
+            self.client = None
+            return
+
+        try:
+            import openai
+            self.client = openai.OpenAI(
+                api_key=self.api_key,
+                base_url=self.base_url
+            )
+            print(f"[OpenAICaller] 初始化成功: model={self.model}, base_url={self.base_url}")
+        except Exception as e:
+            print(f"[OpenAICaller] 初始化失败: {e}")
+            self.client = None
+
+    def call(self, agent_id: str, task_dir: str, context: str = "") -> Dict[str, Any]:
+        """调用 OpenAI/DeepSeek API"""
+        if self.client is None:
+            print("[OpenAICaller] 客户端未初始化，降级到 FallbackCaller")
+            fallback = FallbackCaller(str(self.project_root))
+            return fallback.call(agent_id, task_dir, context)
+
+        agent_def = self._read_agent_def(agent_id)
+        if agent_def is None:
+            msg = f"Agent 定义不存在: {agent_id}"
+            print(f"[OpenAICaller] {msg}")
+            return {"output": "", "tool_calls": [], "usage": {},
+                    "success": False, "error": msg}
+
+        prompt = f"{agent_def}\n\n--- 任务上下文 ---\n{context}" if context else agent_def
+
+        print(f"[OpenAICaller] 调用: {agent_id} | task_dir={task_dir}")
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=4096,
+                temperature=0.7
+            )
+
+            output = response.choices[0].message.content
+            usage = {
+                "input_tokens": response.usage.prompt_tokens,
+                "output_tokens": response.usage.completion_tokens,
+            }
+
+            print(f"[OpenAICaller] 成功: {agent_id} | tokens: "
+                  f"{usage['input_tokens']}in/{usage['output_tokens']}out")
+
+            return {
+                "output": output,
+                "tool_calls": [],  # OpenAI 格式暂不支持 tool calls
+                "usage": usage,
+                "success": True,
+                "error": None,
+            }
+
+        except Exception as e:
+            err_msg = self._classify_error(e)
+            print(f"[OpenAICaller] 失败: {agent_id} — {err_msg}")
+            return {"output": "", "tool_calls": [], "usage": {},
+                    "success": False, "error": err_msg}
