@@ -76,8 +76,9 @@ def clamped_poisson_interval(
     upper_bound = average_interval * upper_clamp_multiple
     lower_bound = max(0, average_interval * _lower_clamp_multiple(upper_clamp_multiple))
 
-    upper_rv = _exponential_cdf(upper_bound, average_interval)
-    lower_rv = _exponential_cdf(lower_bound, average_interval)
+    rate = 1.0 / average_interval if average_interval > 0 else 1.0
+    upper_rv = _exponential_cdf(upper_bound, rate)
+    lower_rv = _exponential_cdf(lower_bound, rate)
     return _poisson_interval(average_interval, lower_rv, upper_rv)
 
 
