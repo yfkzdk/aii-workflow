@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SkillResult",
+  "description": "Skill 执行结果标准契约（P0-P3 强制字段）",
+  "type": "object",
+  "required": [
+    "skill_name",
+    "status",
+    "outputs",
+    "metadata",
+    "trace_context"
+  ],
+  "properties": {
+    "skill_name": {
+      "type": "string",
+      "description": "Skill 名称",
+      "examples": ["security-review", "simplify"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "running", "completed", "failed", "skipped", "blocked", "waiting_approval", "retrying"],
+      "description": "执行状态（显式状态机）"
+    },
+    "outputs": {
+      "type": "object",
+      "description": "输出数据（结构化）",
+      "additionalProperties": true
+    },
+    "error": {
+      "type": "object",
+      "description": "错误信息（失败时必填）",
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^(CFG|EXE|QTY|APP)-[0-9]{3}$",
+          "description": "错误码（命名空间-序号）"
+        },
+        "message": {
+          "type": "string",
+          "description": "错误消息"
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "是否可重试"
+        },
+        "intervention_required": {
+          "type": "boolean",
+          "description": "是否需要人工介入"
+        }
+      },
+      "required": ["code", "message"]
+    },
+    "metadata": {
+      "type": "object",
+      "description": "元数据（幂等性与副作用标记）",
+      "required": ["idempotency_key", "side_effect", "execution_id"],
+      "properties": {
+        "idempotency_key": {
+          "type": "string",
+          "pattern": "^skill:[a-z0-9_-]+:[a-f0-9]{16}$",
+          "description": "幂等性键（skill:stage:context_hash）"
+        },
+        "side_effect": {
+          "type": "string",
+          "enum": ["none", "read_only", "write", "external_api", "db_write"],
+          "description": "副作用类型（决定重试策略）"
+        },
+        "execution_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "执行 ID（全局唯一）"
+        },
+        "retry_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "default": 0,
+          "description": "重试次数"
+        },
+        "duration_ms": {
+          "type": "number",
+          "description": "执行耗时（毫秒）"
+        }
+      }
+    },
+    "trace_context": {
+      "type": "object",
+      "description": "链路追踪上下文（强制透传）",
+      "required": ["trace_id", "plan_id", "config_version"],
+      "properties": {
+        "trace_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "全链路追踪 ID"
+        },
+        "plan_id": {
+          "type": "string",
+          "description": "计划 ID"
+        },
+        "config_version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "配置版本（SemVer）"
+        },
+        "stage": {
+          "type": "string",
+          "description": "当前阶段"
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "description": "质量指标（Phase 2 评估）",
+      "properties": {
+        "accuracy": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "custom_metrics": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  }
+}
