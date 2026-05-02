@@ -9,8 +9,6 @@ from pathlib import Path
 
 # 确保项目根目录在 sys.path 中
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
 from scripts.validator import validate_step, _check_requirement_schema
 from core.quality_gates import QualityGateRunner, GATES

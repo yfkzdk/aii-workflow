@@ -29,10 +29,28 @@
       "skills": []
     },
     "prompt_optimizer": {
-      "role": "提示词三选一优化",
+      "role": "通用提示词优化 (DEBATE)",
       "input": "artifacts/requirements.md",
       "output": "artifacts/optimal_prompt.md",
       "skills": ["simplify"]
+    },
+    "prompt_optimizer_v2": {
+      "role": "激进型提示词优化 (DEBATE)",
+      "input": "artifacts/requirements.md",
+      "output": "artifacts/optimal_prompt_v2.md",
+      "skills": ["simplify"]
+    },
+    "prompt_optimizer_v3": {
+      "role": "安全保守型提示词优化 (DEBATE)",
+      "input": "artifacts/requirements.md",
+      "output": "artifacts/optimal_prompt_v3.md",
+      "skills": ["simplify"]
+    },
+    "reviewer": {
+      "role": "评审专家 (DEBATE reviewer)",
+      "input": "多份提示词候选",
+      "output": "artifacts/debate_verdict.json",
+      "skills": ["review"]
     },
     "coder": {
       "role": "代码实现",
@@ -41,16 +59,22 @@
       "skills": ["simplify", "security-review"]
     },
     "coder_frontend": {
-      "role": "前端开发",
+      "role": "前端开发 (PARALLEL)",
       "input": "artifacts/optimal_prompt.md",
       "output": "artifacts/code/frontend/",
-      "skills": ["simplify"]
+      "skills": ["simplify", "frontend-design"]
     },
     "coder_backend": {
-      "role": "后端开发",
+      "role": "后端开发 (PARALLEL)",
       "input": "artifacts/optimal_prompt.md",
       "output": "artifacts/code/backend/",
       "skills": ["security-review", "claude-api"]
+    },
+    "coder_tests": {
+      "role": "测试工程师 (PARALLEL)",
+      "input": "artifacts/optimal_prompt.md",
+      "output": "artifacts/code/test_main.py",
+      "skills": ["review", "pytest"]
     },
     "verifier": {
       "role": "测试验证",
@@ -63,6 +87,20 @@
       "input": "artifacts/*",
       "output": "AI_WORKFLOW_LOG.md",
       "skills": []
+    }
+  },
+  "multi_agent_stages": {
+    "prompt_optimizing": {
+      "strategy": "debate",
+      "agents": ["prompt_optimizer", "prompt_optimizer_v2", "prompt_optimizer_v3"],
+      "reviewer": "reviewer",
+      "merge_strategy": "pick_best"
+    },
+    "executing": {
+      "strategy": "parallel",
+      "agents": ["coder", "coder_tests"],
+      "merge_strategy": "concat",
+      "note": "Runs coder and test engineer in parallel based on the optimal prompt"
     }
   },
   "confirmation_gate": {

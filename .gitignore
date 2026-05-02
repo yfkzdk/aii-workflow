@@ -31,6 +31,9 @@ artifacts/
 # Archive (non-core, kept for reference)
 archive/
 
+# References (external code for design study)
+references/
+
 # Logs
 logs/*.log
 

@@ -17,7 +17,6 @@ import unittest
 from unittest.mock import patch, MagicMock
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, PROJECT_ROOT)
 
 from core.db import StateDB
 from core.agent_caller import AgentCaller, FallbackCaller, SDKCaller

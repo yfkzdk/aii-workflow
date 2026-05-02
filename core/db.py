@@ -6,10 +6,13 @@
 """
 
 import json
+import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger("core.db")
 
 
 _CREATE_TASK_STATE = """
@@ -22,6 +25,7 @@ CREATE TABLE IF NOT EXISTS task_state (
     user_input_json   TEXT NOT NULL DEFAULT '{}',
     confirmation_json TEXT NOT NULL DEFAULT '{}',
     pipeline_json     TEXT NOT NULL DEFAULT '[]',
+    error            TEXT NOT NULL DEFAULT '',
     total_input_tokens  INTEGER NOT NULL DEFAULT 0,
     total_output_tokens INTEGER NOT NULL DEFAULT 0,
     total_cache_hits    INTEGER NOT NULL DEFAULT 0,
@@ -58,7 +62,7 @@ class StateDB:
 
     def _connect(self) -> sqlite3.Connection:
         if self._conn is None:
-            self._conn = sqlite3.connect(str(self.db_path))
+            self._conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.execute("PRAGMA foreign_keys=ON")
             self._conn.row_factory = sqlite3.Row
@@ -73,16 +77,20 @@ class StateDB:
         conn = self._connect()
         conn.execute(_CREATE_TASK_STATE)
         conn.execute(_CREATE_SNAPSHOTS)
-        # 阶段三迁移：为旧表添加 token 字段
+        # 迁移：为旧表添加缺失字段
         for col, default in [
             ("total_input_tokens", 0),
             ("total_output_tokens", 0),
             ("total_cache_hits", 0),
+            ("error", "''"),
         ]:
             try:
-                conn.execute(f"ALTER TABLE task_state ADD COLUMN {col} INTEGER NOT NULL DEFAULT {default}")
+                if isinstance(default, str):
+                    conn.execute(f"ALTER TABLE task_state ADD COLUMN {col} TEXT NOT NULL DEFAULT {default}")
+                else:
+                    conn.execute(f"ALTER TABLE task_state ADD COLUMN {col} INTEGER NOT NULL DEFAULT {default}")
             except sqlite3.OperationalError:
-                pass  # 列已存在
+                pass
         conn.commit()
 
     # ---- 核心 CRUD ----
@@ -106,7 +114,7 @@ class StateDB:
             (task_id, pipeline_json, now, now),
         )
         conn.commit()
-        print(f"[StateDB] 任务初始化: {task_id}")
+        logger.info("任务初始化: %s", task_id)
         return self.get_state(task_id)
 
     def get_state(self, task_id: str) -> Dict[str, Any]:
@@ -121,7 +129,10 @@ class StateDB:
 
     def update_status(self, task_id: str, new_status: str,
                       next_agent: Optional[str] = None) -> Dict[str, Any]:
-        """更新状态，自动计算 step_index。"""
+        """更新状态，自动计算 step_index。
+
+        completed/cancelled → step_index 设为 len(pipeline)，确保所有阶段显示已完成。
+        """
         conn = self._connect()
         state = self.get_state(task_id)
         pipeline: List[str] = json.loads(state["pipeline_json"])
@@ -129,8 +140,8 @@ class StateDB:
         step_index = 0
         if new_status in pipeline:
             step_index = pipeline.index(new_status)
-        elif new_status in ("completed", "cancelled"):
-            step_index = len(pipeline) - 1
+        elif new_status in ("completed", "cancelled", "failed"):
+            step_index = len(pipeline)  # 超出范围，所有阶段都已完成/失败前
 
         now = datetime.now().isoformat()
         conn.execute(
@@ -139,13 +150,20 @@ class StateDB:
             (new_status, step_index, now, task_id),
         )
         conn.commit()
-        print(f"[StateDB] 状态更新: {task_id} → {new_status} (step={step_index})")
+        logger.info("状态更新: %s → %s (step=%s)", task_id, new_status, step_index)
         result = self.get_state(task_id)
-        # next_agent 是调用方传入的提示信息，不存入 DB
-        # 仅在本次返回中携带，下次 get_state() 会丢失
         if next_agent is not None:
             result["_next_agent_hint"] = next_agent
         return result
+
+    def save_error(self, task_id: str, error: str) -> None:
+        """保存/清除错误信息。"""
+        conn = self._connect()
+        conn.execute(
+            "UPDATE task_state SET error=?, updated_at=? WHERE task_id=?",
+            (error, datetime.now().isoformat(), task_id),
+        )
+        conn.commit()
 
     def save_snapshot(self, task_id: str, label: str = "") -> int:
         """持久化快照到 snapshots 表，返回快照 id。"""
@@ -160,7 +178,7 @@ class StateDB:
         )
         conn.commit()
         snap_id = cursor.lastrowid
-        print(f"[StateDB] 快照保存: {task_id} label='{label}' id={snap_id}")
+        logger.info("快照保存: %s label=%r id=%s", task_id, label, snap_id)
         return snap_id
 
     def rollback(self, task_id: str, steps: int = 1) -> bool:
@@ -173,7 +191,7 @@ class StateDB:
         ).fetchall()
 
         if not rows:
-            print(f"[StateDB] 回滚失败: 无快照 ({task_id})")
+            logger.warning("回滚失败: 无快照 (%s)", task_id)
             return False
 
         # 取倒数第 N 个（即列表最后一个元素）
@@ -196,7 +214,7 @@ class StateDB:
             ),
         )
         conn.commit()
-        print(f"[StateDB] 回滚成功: {task_id} → {restored['status']} (snapshot id={target['id']})")
+        logger.info("回滚成功: %s → %s (snapshot id=%s)", task_id, restored['status'], target['id'])
         return True
 
     def increment_retry(self, task_id: str) -> int:
@@ -209,7 +227,7 @@ class StateDB:
         )
         conn.commit()
         state = self.get_state(task_id)
-        print(f"[StateDB] 重试递增: {task_id} retry_count={state['retry_count']}")
+        logger.info("重试递增: %s retry_count=%s", task_id, state['retry_count'])
         return state["retry_count"]
 
     def reset_retry_count(self, task_id: str) -> None:
@@ -254,9 +272,9 @@ class StateDB:
         )
         conn.commit()
         state = self.get_state(task_id)
-        print(f"[StateDB] Token 累加: +{input_tokens}in +{output_tokens}out | "
-              f"Total: {state['total_input_tokens']}/{state['total_output_tokens']} | "
-              f"Cache hits: {state['total_cache_hits']}")
+        logger.info("Token 累加: +%sin +%sout | Total: %s/%s | Cache hits: %s",
+                    input_tokens, output_tokens, state['total_input_tokens'],
+                    state['total_output_tokens'], state['total_cache_hits'])
 
     def get_token_usage(self, task_id: str) -> Dict[str, int]:
         """返回 token 用量 dict。"""

@@ -44,3 +44,23 @@
 [2026-04-24T00:00:04Z] [SESSION-4] Completed [task-026] (commit ca9dacb)
 [2026-04-24T00:00:04Z] [SESSION-4] Completed [task-027] (commit ca9dacb)
 [2026-04-24T00:00:04Z] [SESSION-4] STATS tasks_total=20 completed=20 failed=0 pending=0 blocked=0 attempts_total=20 checkpoints=0
+2026-04-30T06:16:41Z [SESSION-5] INIT Harness session 5 started for FastAPI Web Layer
+[2026-04-30T00:05:00Z] [SESSION-5] Starting [task-001] FastAPI骨架 (base=HEAD)
+[2026-04-30T00:10:00Z] [SESSION-5] CHECKPOINT [task-001] step=1/2 "app/main.py, config.py, deps.py, models.py created"
+[2026-04-30T00:12:00Z] [SESSION-5] CHECKPOINT [task-001] step=2/2 "health endpoint validated"
+[2026-04-30T00:12:00Z] [SESSION-5] Completed [task-001]
+[2026-04-30T00:13:00Z] [SESSION-5] Starting [task-002] EventBus + PipelineRunner
+[2026-04-30T00:16:00Z] [SESSION-5] Completed [task-002]
+[2026-04-30T00:17:00Z] [SESSION-5] Starting [task-003] TaskManager
+[2026-04-30T00:20:00Z] [SESSION-5] Completed [task-003]
+[2026-04-30T00:21:00Z] [SESSION-5] Starting [task-004] print→logging
+[2026-04-30T00:25:00Z] [SESSION-5] Completed [task-004]
+[2026-04-30T00:26:00Z] [SESSION-5] Starting [task-005] Routers
+[2026-04-30T00:35:00Z] [SESSION-5] Completed [task-005]
+[2026-04-30T00:36:00Z] [SESSION-5] Starting [task-006] WebSocket
+[2026-04-30T00:38:00Z] [SESSION-5] Completed [task-006]
+[2026-04-30T00:39:00Z] [SESSION-5] Starting [task-007] Frontend
+[2026-04-30T00:50:00Z] [SESSION-5] Completed [task-007]
+[2026-04-30T00:51:00Z] [SESSION-5] Starting [task-008] Auth + Docker + E2E
+[2026-04-30T01:00:00Z] [SESSION-5] Completed [task-008]
+[2026-04-30T01:00:00Z] [SESSION-5] STATS tasks_total=8 completed=8 failed=0 pending=0 blocked=0 attempts_total=8 checkpoints=4
