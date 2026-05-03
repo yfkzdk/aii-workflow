@@ -31,6 +31,11 @@ artifacts/
 # Archive (non-core, kept for reference)
 archive/
 
+# Test artifacts
+htmlcov/
+.coverage
+coverage.xml
+
 # References (external code for design study)
 references/
 
@@ -40,3 +45,4 @@ logs/*.log
 # Environment
 .env
 .env.local.env
+*.egg-info/
