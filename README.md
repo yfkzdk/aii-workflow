@@ -1,13 +1,13 @@
-# AI Agent 协作引擎 — 多模型工作流编排与容错系统
+# AI Agent 协作引擎 — 多模型工作流编排引擎
 
 [![Python](https://img.shields.io/badge/Python-3.9+-3776AB?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![SQLite](https://img.shields.io/badge/SQLite-WAL-003B57?logo=sqlite)](https://sqlite.org)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker)](https://docker.com)
-[![Tests](https://img.shields.io/badge/tests-96%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-64%20passed-brightgreen)]()
 [![Version](https://img.shields.io/badge/version-0.6.0-blue)]()
 
-从零设计的 AI Agent 编排系统，研究多 Agent 协作行为与失效模式。8 阶段确定性管线，3 种多 Agent 协作策略，事件溯源状态机 + Saga 补偿事务。
+从零设计的 AI Agent 编排系统，研究多 Agent 协作行为与失效模式。8 阶段确定性管线，3 种多 Agent 协作策略。
 
 ---
 
@@ -28,18 +28,18 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
 
 ---
 
-## 核心亮点（面试展示用）
+## 核心亮点
 
 ### 多 Agent 辩论
 `prompt_optimizing` 阶段启动 3 个不同风格的优化师竞争，Reviewer 四维度评分选出最优提示词。
 
 > 通用型 vs 激进型 vs 保守型 → Reviewer 判词 + 评分 → 胜出提示词进入代码生成
 
-### 确定性编排
-8 阶段管线不是简单的"调 API"：
-- **事件溯源状态机** — 每一步可审计、可回滚
-- **Saga 补偿事务** — Agent 失败自动回退到前一阶段重试
-- **Poisson 抖动重试** — 避免 LLM API 限流的雪崩效应
+### 确定性编排 + 补偿回退
+8 阶段管线，每步验证：
+- **快照回滚** — 每步执行前自动保存快照，失败可回退
+- **补偿回退** — verifying 失败回退 executing，executing 失败回退 prompt_optimizing
+- **重试耗尽检测** — 超过 max_retries 自动标记 failed
 
 ### 三道防线
 1. Agent 系统指令约束
@@ -83,23 +83,10 @@ User Input → Requirement Optimizer → Confirmation Gate → Planner
 
 ---
 
-## 稳定性机制（对齐业界最佳实践）
-
-| 机制 | 实现 | 对标 |
-|------|------|------|
-| 事件溯源状态机 | `core/event_sourced_state.py` | Temporal |
-| Saga 补偿事务 | `core/saga_orchestrator.py` | Prefect |
-| Poisson 抖动重试 | `core/retry_policy.py` | AWS SDK |
-| 心跳检查点 | `core/heartbeat_checkpoint.py` | Temporal |
-| 流水线快照回滚 | `core/pipeline_snapshot.py` | Haystack |
-| 优先级队列 | `core/priority_queue.py` | Haystack |
-
----
-
 ## 技术栈
 
 - **后端**: Python 3.9+ / FastAPI / Uvicorn
-- **前端**: Vanilla JS / CSS Glassmorphism / WebSocket 实时推送
+- **前端**: Vanilla JS / WebSocket 实时推送 / Dark OLED 风格
 - **存储**: SQLite WAL / 快照回滚
 - **LLM**: Anthropic Claude / DeepSeek / OpenAI 兼容 API
 - **部署**: Docker / docker-compose
@@ -114,7 +101,7 @@ User Input → Requirement Optimizer → Confirmation Gate → Planner
 3. 点击「启动流水线」
 4. 观察管线实时推进 → **重点看 `prompt_optimizing` 阶段的辩论面板** — 三栏对比 3 个优化师的输出
 5. 确认方案后继续 → 代码生成 → 验证 → 归档
-6. 产物品面板下载/预览生成的代码
+6. 产物面板下载/预览生成的代码
 
 ---
 
@@ -124,27 +111,9 @@ User Input → Requirement Optimizer → Confirmation Gate → Planner
 # 多 Agent 协作测试（22 个）
 python -m pytest tests/test_multi_agent.py -v
 
-# 全部测试（96 个）
+# 全部测试（64 个）
 python -m pytest tests/ -v
 ```
-
----
-
-## 稳定性组件库（v0.6 体系）
-
-`core/` 目录下包含 7 个稳定性组件。其中 RetryPolicy、PipelineSnapshot 和 Saga 被 `Orchestrator.run()` 主循环直接集成（快照回滚、重试、补偿）；EventSourcedStateMachine、HeartbeatCheckpoint、PrioritySkillQueue 通过 `SkillOrchestrator` 整合，作为下一阶段主循环重构的架构预留。
-
-| 组件 | 行数 | 集成状态 | 对标 |
-|------|------|----------|------|
-| `retry_policy.py` | 116 | ✅ 已集成到主循环 | AWS SDK |
-| `pipeline_snapshot.py` | 174 | ✅ 已集成到 StateDB | Haystack |
-| `saga_orchestrator.py` | 233 | ✅ 校验失败回退走 Saga | Prefect |
-| `event_sourced_state.py` | 298 | 🔧 SkillOrchestrator 中 | Temporal |
-| `heartbeat_checkpoint.py` | 142 | 🔧 SkillOrchestrator 中 | Temporal |
-| `priority_queue.py` | 135 | 🔧 SkillOrchestrator 中 | Haystack |
-| `skill_orchestrator.py` | 263 | 🔧 集成容器 | — |
-
-> 设计思路：主循环保持轻量（直接操作 StateDB），全功能集成走 SkillOrchestrator。两套方案各有适用场景，详见 `docs/架构图.md`。
 
 ---
 

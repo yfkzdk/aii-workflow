@@ -142,13 +142,15 @@ class Orchestrator:
             if not passed:
                 self.db.save_error(self.task_id, msg)
                 self._handle_validation_failure(status, msg)
-                retry_count = self.db.get_state(self.task_id).get("retry_count", 0)
-                if retry_count >= self.max_retries:
+                retry = self.db.increment_retry(self.task_id)
+                if retry >= self.max_retries:
                     self.db.update_status(self.task_id, "failed")
-                    logger.info(f"验证重试耗尽，任务失败: {self.task_id}")
+                    logger.info("验证重试耗尽，任务失败: %s (retry=%s/%s)",
+                                self.task_id, retry, self.max_retries)
                     return {"status": "failed", "step": status, "error": msg}
+                logger.info("验证失败，重试 %s/%s: %s", retry, self.max_retries, msg[:80])
                 state = self.db.get_state(self.task_id)
-                # 如果回退了阶段，idx 也要回退
+                # 补偿回退后 idx 需要同步调整
                 current_status = state["status"]
                 if current_status in PIPELINE_STEPS:
                     new_idx = PIPELINE_STEPS.index(current_status)
@@ -414,23 +416,29 @@ class Orchestrator:
         return validate_step(Path(self.task_dir), step)
 
     def _handle_validation_failure(self, step: str, msg: str) -> None:
-        retry = self.db.increment_retry(self.task_id)
+        """执行补偿回退。
 
+        重试计数由调用方（run 循环）统一管理，此方法只负责：
+        1. 写入 retry_feedback.json（可审计）
+        2. 按步骤执行补偿回退
+        """
         feedback_path = Path(self.task_dir) / "artifacts" / "retry_feedback.json"
         feedback_path.parent.mkdir(parents=True, exist_ok=True)
-        feedback = {"step": step, "error": msg, "retry_count": retry}
+        retry_count = self.db.get_state(self.task_id).get("retry_count", 0)
+        feedback = {"step": step, "error": msg, "retry_count": retry_count,
+                     "timestamp": datetime.now().isoformat()}
         feedback_path.write_text(
             json.dumps(feedback, ensure_ascii=False, indent=2), encoding="utf-8"
         )
 
         if step == "verifying":
             self.db.update_status(self.task_id, "executing", "coder")
-            logger.info(f"verifying 验证失败 → 回退到 executing")
+            logger.info("verifying 验证失败 → 补偿回退到 executing")
         elif step == "executing":
             self.db.update_status(self.task_id, "prompt_optimizing", "prompt_optimizer")
-            logger.info(f"executing 验证失败 → 回退到 prompt_optimizing")
+            logger.info("executing 验证失败 → 补偿回退到 prompt_optimizing")
         else:
-            logger.info(f"{step} 验证失败 → 保持当前步骤重试")
+            logger.info("%s 验证失败 → 保持当前步骤重试", step)
 
     # ---- 用户交互 ----
 

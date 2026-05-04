@@ -80,7 +80,7 @@ def test_validate_invalid_json():
 
 
 def test_retry_on_verify_fail():
-    """模拟 verifying 失败 → 回退到 executing 且 retry_count=1。"""
+    """模拟 verifying 失败 → 补偿回退到 executing，调用方递增 retry_count。"""
     tmp = Path(tempfile.mkdtemp())
     task_id = "test_retry_verify"
     task_dir = _setup_task_dir(tmp, task_id)
@@ -98,22 +98,22 @@ def test_retry_on_verify_fail():
     passed, msg = orch._validate_step("verifying")
     assert not passed, f"应失败但通过了: {msg}"
 
-    # 处理失败
+    # 补偿回退（不再递增 retry）
     orch._handle_validation_failure("verifying", msg)
+    # 调用方负责递增 retry（模拟 run 循环行为）
+    orch.db.increment_retry(task_id)
 
     assert orch.get_retry_count() == 1, f"retry_count 应为 1, 实际 {orch.get_retry_count()}"
 
-    # 验证回退到 executing
-    db2 = StateDB(str(task_dir))
-    state = db2.get_state(task_id)
-    db2.close()
+    # 验证状态回退到 executing
+    state = orch.db.get_state(task_id)
     assert state["status"] == "executing", f"状态应为 executing, 实际 {state['status']}"
 
     results.append(("test_retry_on_verify_fail", True, "PASS"))
 
 
 def test_retry_exhaust():
-    """连续失败 3 次 → 任务标记为 failed。"""
+    """调用方递增 retry 3 次 → 超过 max_retries 后标记 failed。"""
     tmp = Path(tempfile.mkdtemp())
     task_id = "test_retry_exhaust"
     task_dir = _setup_task_dir(tmp, task_id)
@@ -126,20 +126,19 @@ def test_retry_exhaust():
     orch = Orchestrator(str(task_dir), task_id, max_retries=3)
     orch.force_fail_step("planning")
 
-    # 模拟 3 次验证失败
+    # 模拟 3 次验证失败（调用方负责递增 retry）
     for i in range(3):
         passed, msg = orch._validate_step("planning")
         if not passed:
             orch._handle_validation_failure("planning", msg)
+            orch.db.increment_retry(task_id)
 
     assert orch.get_retry_count() == 3, f"retry_count 应为 3, 实际 {orch.get_retry_count()}"
 
     # 超过 max_retries 时标记 failed
     if orch.get_retry_count() >= orch.max_retries:
-        db3 = StateDB(str(task_dir))
-        db3.update_status(task_id, "failed")
-        state = db3.get_state(task_id)
-        db3.close()
+        orch.db.update_status(task_id, "failed")
+        state = orch.db.get_state(task_id)
         assert state["status"] == "failed", f"状态应为 failed, 实际 {state['status']}"
 
     results.append(("test_retry_exhaust", True, "PASS"))
