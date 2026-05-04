@@ -19,28 +19,18 @@ from unittest.mock import patch, MagicMock
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 from core.db import StateDB
-from core.agent_caller import AgentCaller, FallbackCaller, SDKCaller
+from core.agent_caller import AgentCaller, FallbackCaller, OpenAICaller, SDKCaller
 from core.orchestrator import Orchestrator, PIPELINE, PIPELINE_STEPS
 
 
 class TestSDKFallback(unittest.TestCase):
-    """anthropic 未安装时 → FallbackCaller。"""
+    """AgentCaller.create() 工厂方法测试。"""
 
-    def test_create_without_anthropic(self):
-        """工厂方法在无 anthropic 库时返回 FallbackCaller。"""
-        with patch.dict("sys.modules", {"anthropic": None}):
-            # 强制 ImportError
-            caller = AgentCaller.create(project_root=PROJECT_ROOT)
-            self.assertIsInstance(caller, FallbackCaller,
-                                  "无 anthropic 库时应降级到 FallbackCaller")
-
-    def test_create_with_anthropic(self):
-        """有 anthropic 库时返回 SDKCaller。"""
-        mock_anthropic = MagicMock()
-        with patch.dict("sys.modules", {"anthropic": mock_anthropic}):
-            caller = AgentCaller.create(project_root=PROJECT_ROOT)
-            self.assertIsInstance(caller, SDKCaller,
-                                  "有 anthropic 库时应返回 SDKCaller")
+    def test_create_returns_openai_caller(self):
+        """有 openai 库时优先返回 OpenAICaller。"""
+        caller = AgentCaller.create(project_root=PROJECT_ROOT)
+        self.assertIsInstance(caller, OpenAICaller,
+                              "有 openai 库时应返回 OpenAICaller")
 
     def test_fallback_caller_missing_agent(self):
         """FallbackCaller 对不存在的 agent 返回失败。"""

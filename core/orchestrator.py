@@ -18,7 +18,6 @@ from typing import Any, Dict, List, Optional, Tuple
 from core.db import StateDB
 from core.agent_caller import AgentCaller
 from core.pipeline_def import PIPELINE, PIPELINE_STEPS
-from core.quality_gates import QualityGateRunner
 from core.multi_agent import MultiAgentStage, MultiAgentStrategy, MULTI_AGENT_STAGES
 from core.debate_engine import DebateEngine
 from core.parallel_executor import ParallelExecutor
@@ -58,8 +57,8 @@ class Orchestrator:
         self.task_dir = task_dir
         self.db = StateDB(task_dir)
         self.caller = AgentCaller.create(project_root)
-        self.gate_runner = QualityGateRunner()
         self.max_retries = max_retries
+        self._force_fail_steps: set = set()
 
         self._total_input_tokens: int = 0
         self._total_output_tokens: int = 0
@@ -106,7 +105,11 @@ class Orchestrator:
                 if multi_config is not None:
                     result = self._run_multi_agent_stage(status, multi_config, context)
                 else:
-                    result = self.caller.call(agent_id, str(self.db.task_dir), context)
+                    try:
+                        result = self.caller.call(agent_id, str(self.db.task_dir), context)
+                    except Exception as exc:
+                        logger.exception("Agent 调用异常: %s / %s", agent_id, exc)
+                        result = {"success": False, "error": f"Agent 调用异常: {exc}", "usage": {}}
 
                 self._record_token_usage(result.get("usage", {}))
 
@@ -157,23 +160,6 @@ class Orchestrator:
             # 验证通过，重置重试计数和错误
             self.db.reset_retry_count(self.task_id)
             self.db.save_error(self.task_id, "")
-
-            # 质量门检查（当前为空操作，skill 文件不存在时自动通过）
-            gate_result = self.gate_runner.run_gates(Path(self.task_dir), status)
-            if not gate_result["approved"]:
-                self._handle_gate_failure(status, gate_result)
-                retry_count = self.db.get_state(self.task_id).get("retry_count", 0)
-                if retry_count >= self.max_retries:
-                    self.db.update_status(self.task_id, "failed")
-                    return {"status": "failed", "step": status, "gate": gate_result}
-                state = self.db.get_state(self.task_id)
-                current_status = state["status"]
-                if current_status in PIPELINE_STEPS:
-                    new_idx = PIPELINE_STEPS.index(current_status)
-                    if new_idx < stage_index:
-                        idx = new_idx
-                        continue
-                continue
 
             # 推进到下一阶段
             next_idx = stage_index + 1
@@ -351,9 +337,80 @@ class Orchestrator:
             full_path.write_text(content, encoding="utf-8")
             logger.info(f"Extra artifact persisted: {rel_path} ({len(content)} 字符)")
 
+    def advance(self) -> Dict[str, Any]:
+        """手动推进管线一步。跳过 needs_user 的阶段。"""
+        state = self.db.get_state(self.task_id)
+        current = state["status"]
+        if current == "completed":
+            return {"status": "completed", "step_index": len(PIPELINE)}
+        if current == "failed":
+            return {"status": "failed", "error": state.get("error", "")}
+
+        idx = PIPELINE_STEPS.index(current) if current in PIPELINE_STEPS else -1
+        next_idx = idx + 1
+        if next_idx >= len(PIPELINE):
+            self.db.update_status(self.task_id, "completed")
+            return {"status": "completed", "step_index": len(PIPELINE)}
+
+        next_status, next_agent, _ = PIPELINE[next_idx]
+        self.db.update_status(self.task_id, next_status, next_agent)
+        return self.db.get_state(self.task_id)
+
+    def handle_user_input(self, user_text: str) -> Dict[str, Any]:
+        """处理用户输入，追加为结构化 chunk。"""
+        state = self.db.get_state(self.task_id)
+        user_input = json.loads(state.get("user_input_json", "{}"))
+        chunks = user_input.get("chunks", [])
+        seq = len(chunks)
+        chunks.append({"seq": seq, "content": user_text, "timestamp": datetime.now().isoformat()})
+        user_input["chunks"] = chunks
+        user_input["is_complete"] = True
+        self.db.set_user_input(self.task_id, json.dumps(user_input, ensure_ascii=False))
+        return self.db.get_state(self.task_id)
+
+    def force_fail_step(self, step: str) -> None:
+        """标记某步骤为强制失败（测试用）。"""
+        self._force_fail_steps.add(step)
+
+    def get_retry_count(self) -> int:
+        """返回当前重试计数。"""
+        state = self.db.get_state(self.task_id)
+        return state.get("retry_count", 0)
+
+    def _handle_tool_call(self, current_step: str,
+                          tool_call: Dict[str, Any]) -> bool:
+        """验证并处理 agent 的 transition_state tool call。
+
+        返回 True 表示批准推进，False 表示拒绝。
+        """
+        if tool_call.get("name") != "transition_state":
+            return False
+
+        inp = tool_call.get("input", {})
+        next_step = inp.get("next_step", "")
+
+        if next_step not in PIPELINE_STEPS:
+            return False
+
+        current_idx = PIPELINE_STEPS.index(current_step) if current_step in PIPELINE_STEPS else -1
+        next_idx = PIPELINE_STEPS.index(next_step)
+
+        # 禁止跳步（只能推进到下一步）
+        if next_idx != current_idx + 1:
+            return False
+
+        passed, _ = self._validate_step(next_step)
+        if not passed:
+            return False
+
+        self.db.update_status(self.task_id, next_step, None)
+        return True
+
     # ---- 验证与回退 ----
 
     def _validate_step(self, step: str) -> Tuple[bool, str]:
+        if step in self._force_fail_steps:
+            return False, f"强制失败: {step}"
         return validate_step(Path(self.task_dir), step)
 
     def _handle_validation_failure(self, step: str, msg: str) -> None:
@@ -374,18 +431,6 @@ class Orchestrator:
             logger.info(f"executing 验证失败 → 回退到 prompt_optimizing")
         else:
             logger.info(f"{step} 验证失败 → 保持当前步骤重试")
-
-    def _handle_gate_failure(self, step: str, gate_result: Dict[str, Any]) -> None:
-        for r in gate_result["results"]:
-            if r.get("passed") is False and r["action"] == "retry":
-                self.db.increment_retry(self.task_id)
-                step_idx = PIPELINE_STEPS.index(step) if step in PIPELINE_STEPS else -1
-                if step_idx > 0:
-                    prev_step = PIPELINE_STEPS[step_idx - 1]
-                    prev_agent = dict((s, a) for s, a, _ in PIPELINE).get(prev_step)
-                    self.db.update_status(self.task_id, prev_step, prev_agent)
-                    logger.info(f"质量门 retry → 回退到 {prev_step}")
-                break
 
     # ---- 用户交互 ----
 

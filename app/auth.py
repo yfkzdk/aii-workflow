@@ -1,5 +1,6 @@
-"""HTTP Basic Auth for demo purposes."""
+"""HTTP Basic Auth."""
 
+import logging
 import secrets
 from typing import Optional
 
@@ -8,7 +9,21 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from app.config import settings
 
+logger = logging.getLogger("app.auth")
 security = HTTPBasic(auto_error=False)
+
+
+def _validate_auth_config() -> None:
+    """Fail fast at import time if auth is enabled but credentials are unset."""
+    if settings.auth_enabled:
+        if not settings.auth_username or not settings.auth_password:
+            raise RuntimeError(
+                "Auth enabled but credentials not configured. "
+                "Set AII_AUTH_USERNAME and AII_AUTH_PASSWORD environment variables."
+            )
+
+
+_validate_auth_config()
 
 
 def authenticate(credentials: Optional[HTTPBasicCredentials] = Depends(security)):

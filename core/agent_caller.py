@@ -143,6 +143,7 @@ class SDKCaller(AgentCaller):
 
     def __init__(self, project_root: str = ".") -> None:
         super().__init__(project_root)
+        self.model = os.getenv('ANTHROPIC_MODEL', 'claude-sonnet-4-6')
         try:
             from anthropic import Anthropic
             self.client = Anthropic()
@@ -167,7 +168,7 @@ class SDKCaller(AgentCaller):
         print(f"[SDKCaller] 调用: {agent_id} | task_dir={task_dir}")
         try:
             response = self.client.messages.create(
-                model="claude-sonnet-4-6",
+                model=self.model,
                 max_tokens=4096,
                 system=[{
                     "type": "text",
@@ -240,7 +241,7 @@ class OpenAICaller(AgentCaller):
 
         self.api_key = os.getenv('OPENAI_API_KEY')
         self.base_url = os.getenv('OPENAI_BASE_URL', 'https://api.openai.com/v1')
-        self.model = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
+        self.model = os.getenv('OPENAI_MODEL', 'deepseek-chat')
 
         if not self.api_key:
             print("[OpenAICaller] OPENAI_API_KEY 未找到")

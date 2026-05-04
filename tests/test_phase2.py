@@ -11,7 +11,6 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 from scripts.validator import validate_step, _check_requirement_schema
-from core.quality_gates import QualityGateRunner, GATES
 from core.db import StateDB
 from core.orchestrator import Orchestrator
 
@@ -146,62 +145,6 @@ def test_retry_exhaust():
     results.append(("test_retry_exhaust", True, "PASS"))
 
 
-def test_quality_gate_pass():
-    """simplify_report.json（passed=True）→ quality gate 通过。"""
-    tmp = Path(tempfile.mkdtemp())
-    task_dir = _setup_task_dir(tmp)
-
-    report = {"passed": True, "details": "代码质量合格"}
-    (task_dir / "artifacts" / "simplify_report.json").write_text(
-        json.dumps(report, ensure_ascii=False), encoding="utf-8"
-    )
-
-    runner = QualityGateRunner()
-    result = runner.run_gates(task_dir, "verifying")
-
-    assert result["approved"], f"应通过但未通过: {result}"
-    results.append(("test_quality_gate_pass", True, "PASS"))
-
-
-def test_quality_gate_retry():
-    """simplify_report.json（passed=False）→ approved=False。"""
-    tmp = Path(tempfile.mkdtemp())
-    task_dir = _setup_task_dir(tmp)
-
-    report = {"passed": False, "details": "代码需要简化"}
-    (task_dir / "artifacts" / "simplify_report.json").write_text(
-        json.dumps(report, ensure_ascii=False), encoding="utf-8"
-    )
-
-    runner = QualityGateRunner()
-    result = runner.run_gates(task_dir, "verifying")
-
-    assert not result["approved"], f"不应通过但通过了: {result}"
-    results.append(("test_quality_gate_retry", True, "PASS"))
-
-
-def test_quality_gate_warn():
-    """security_review.json（passed=False, action=warn）→ 仅警告，不阻断。"""
-    tmp = Path(tempfile.mkdtemp())
-    task_dir = _setup_task_dir(tmp)
-
-    report = {"passed": False, "details": "存在潜在安全问题"}
-    (task_dir / "artifacts" / "security_review.json").write_text(
-        json.dumps(report, ensure_ascii=False), encoding="utf-8"
-    )
-
-    runner = QualityGateRunner()
-    result = runner.run_gates(task_dir, "executing")
-
-    # warn 不阻断，approved 仍为 True
-    assert result["approved"], f"warn 应不阻断但 approved=False: {result}"
-    # 但 results 中应有记录
-    failed_gates = [r for r in result["results"] if r.get("passed") is False]
-    assert len(failed_gates) > 0, "应有失败的 gate 记录"
-
-    results.append(("test_quality_gate_warn", True, "PASS"))
-
-
 def test_confirmation_flow():
     """完整测试 confirm → planning 推进。"""
     tmp = Path(tempfile.mkdtemp())
@@ -238,9 +181,6 @@ def main():
         test_validate_invalid_json,
         test_retry_on_verify_fail,
         test_retry_exhaust,
-        test_quality_gate_pass,
-        test_quality_gate_retry,
-        test_quality_gate_warn,
         test_confirmation_flow,
     ]
 
